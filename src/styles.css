@@ -1347,6 +1347,7 @@ select:focus-visible {
 .match-actions button { min-height: 42px; flex: 1; border: 1px solid var(--line); border-radius: 9px; color: #fff; background: var(--panel-raised); font-size: .68rem; font-weight: 900; cursor: pointer; }
 .match-actions .primary-button { padding: 8px; color: var(--ink); background: var(--orange); }
 .match-actions button:disabled { color: var(--muted); cursor: default; }
+.manual-saved { flex: 1; display: grid; place-items: center; color: var(--muted); font-size: .65rem; }
 .standings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .standings-card { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: var(--panel); }
 .standings-card h2 { padding: 15px; color: var(--orange); }
@@ -1359,6 +1360,7 @@ select:focus-visible {
 .result-modal h2 { margin: 0 0 22px; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 2.5rem; font-style: italic; text-transform: uppercase; }
 .result-modal label { margin-top: 22px; }
 .manual-score { margin: 18px 0; color: var(--orange); font-family: "Barlow Condensed", Impact, sans-serif; font-size: 4rem; font-style: italic; text-align: center; }
+.edit-warning { margin: -4px 0 18px; color: var(--muted); font-size: .65rem; line-height: 1.5; text-align: center; }
 .modal-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
 .modal-actions > button { min-height: 48px; border: 1px solid var(--line); border-radius: 10px; color: #fff; background: var(--panel-raised); font-size: .7rem; font-weight: 900; cursor: pointer; }
 .modal-actions .primary-button { padding: 9px; color: var(--ink); background: var(--orange); }

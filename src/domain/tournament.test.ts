@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   completeTournamentMatch,
   createTournament,
+  replaceTournamentMatchResult,
   standingsForGroup,
   type Tournament,
   type TournamentConfig,
@@ -121,5 +122,25 @@ describe("tournament generation", () => {
       playerTwoLegs: 0,
       source: "manual",
     })).toThrow(/winner reaching/);
+  });
+
+  it("replaces a completed result before dependent matches are played", () => {
+    let tournament = createTournament({ config: config("knockout"), playerNames: names(4) });
+    const semifinal = tournament.matches.find((match) => match.status === "unplayed")!;
+    tournament = completeTournamentMatch(tournament, semifinal.id, scoredResult(tournament, semifinal.id));
+    const replacement = scoredResult(tournament, semifinal.id, "two");
+    tournament = replaceTournamentMatchResult(tournament, semifinal.id, replacement);
+
+    expect(tournament.matches.find((match) => match.id === semifinal.id)?.result?.winnerId).toBe(semifinal.playerTwoId);
+  });
+
+  it("locks an earlier result after a dependent match is complete", () => {
+    let tournament = createTournament({ config: config("knockout"), playerNames: names(4) });
+    const semifinals = tournament.matches.filter((match) => match.stageLabel === "Semifinal");
+    for (const semifinal of semifinals) tournament = completeTournamentMatch(tournament, semifinal.id, scoredResult(tournament, semifinal.id));
+    const final = tournament.matches.find((match) => match.stageLabel === "Final")!;
+    tournament = completeTournamentMatch(tournament, final.id, scoredResult(tournament, final.id));
+
+    expect(() => replaceTournamentMatchResult(tournament, semifinals[0].id, scoredResult(tournament, semifinals[0].id, "two"))).toThrow(/depends/);
   });
 });

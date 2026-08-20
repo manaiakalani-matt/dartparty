@@ -489,3 +489,56 @@ export function completeTournamentMatch(
       : item),
   });
 }
+
+const dependsOnMatch = (tournament: Tournament, candidate: TournamentMatch, matchId: string): boolean => {
+  const directSources = [candidate.sourceOne, candidate.sourceTwo]
+    .filter((source): source is MatchSource => Boolean(source));
+  if (directSources.some((source) => source.kind === "match" && source.matchId === matchId)) return true;
+  return directSources.some((source) => source.kind === "match" && source.matchId
+    ? dependsOnMatch(tournament, tournament.matches.find((match) => match.id === source.matchId)!, matchId)
+    : false);
+};
+
+export function replaceTournamentMatchResult(
+  tournament: Tournament,
+  matchId: string,
+  result: TournamentMatchResult,
+): Tournament {
+  const target = tournament.matches.find((match) => match.id === matchId);
+  if (!target || target.status !== "completed") throw new Error("Only a completed match result can be replaced.");
+
+  const completedKnockout = tournament.matches.some((match) => match.stage === "knockout" && match.status === "completed");
+  const completedDescendant = target.stage === "group"
+    ? completedKnockout
+    : tournament.matches.some((match) => match.status === "completed" && dependsOnMatch(tournament, match, matchId));
+  if (completedDescendant) throw new Error("A later completed match depends on this result.");
+
+  const retained = tournament.matches
+    .filter((match) => match.status === "completed" && match.id !== matchId && match.result)
+    .map((match) => ({ matchId: match.id, result: structuredClone(match.result!) }));
+  let rebuilt: Tournament = {
+    ...tournament,
+    status: "active",
+    championId: null,
+    matches: tournament.matches.map((match) => {
+      if (match.status === "bye") return match;
+      const playerOneId = match.sourceOne ? null : match.playerOneId;
+      const playerTwoId = match.sourceTwo ? null : match.playerTwoId;
+      return {
+        ...match,
+        playerOneId,
+        playerTwoId,
+        status: playerOneId && playerTwoId ? "unplayed" : "waiting",
+        result: null,
+      };
+    }),
+  };
+
+  const replay = [...retained, { matchId, result }].sort((a, b) => {
+    const first = rebuilt.matches.find((match) => match.id === a.matchId)!;
+    const second = rebuilt.matches.find((match) => match.id === b.matchId)!;
+    return Number(first.stage === "knockout") - Number(second.stage === "knockout") || first.round - second.round;
+  });
+  replay.forEach((saved) => { rebuilt = completeTournamentMatch(rebuilt, saved.matchId, saved.result); });
+  return rebuilt;
+}
