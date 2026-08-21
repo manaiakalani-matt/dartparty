@@ -1,3 +1,5 @@
+/** @OnlyCurrentDoc */
+
 /**
  * Dart Party — Google Apps Script persistence API.
  * Bind this project to the one master spreadsheet, run setupDartParty once,

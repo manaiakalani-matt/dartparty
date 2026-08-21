@@ -10,7 +10,8 @@ A phone-first X01 darts tournament app for house parties. Dart Party keeps the t
 - Round-robin schedules, byes, knockout progression, stage-specific match lengths, and live standings
 - Full visit-by-visit scorer with bust and checkout handling, undo, and inline visit editing
 - Manual result entry and detailed match results
-- Local browser persistence while the Google Sheets service is being built
+- Live Google Sheets persistence through the deployed Apps Script API
+- Concurrent boards with first-save-wins conflict protection and explicit replacement
 
 The product and implementation plan is in [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md).
 
@@ -31,6 +32,8 @@ npm run typecheck
 npm run build
 ```
 
-## Persistence roadmap
+## Persistence
 
-The current UI stores completed tournaments in `localStorage` for end-to-end testing. The production persistence layer will use one master Google Sheet and a deployed Apps Script web service. A match remains local until the player taps **Save result**. The server will use first-save-wins conflict protection and return the already-saved result before offering an explicit replacement.
+One master Google Sheet stores every tournament, match result, visit history, and replacement audit record. A match remains on the scoring device until the player taps **Save result**. Each final save is locked and written to its own match row, so multiple boards can finish simultaneously without overwriting each other.
+
+If two devices save the same match, the first result wins. The second device sees the saved score and can either keep it or explicitly replace it. Replacements use version checks and are blocked after a dependent knockout match has been completed.

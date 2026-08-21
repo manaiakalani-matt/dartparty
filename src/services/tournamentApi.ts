@@ -1,6 +1,8 @@
 import { completeTournamentMatch, type Tournament, type TournamentMatchResult } from "../domain/tournament";
 import type { MatchState } from "../domain/x01";
 
+export const DART_PARTY_API_URL = "https://script.google.com/macros/s/AKfycbzRrf8wicmEjvywMfRYsxyWAbBC2NkusEF2h-i6Y0Ozm2REn78CEJou0V9L1co88bpOtw/exec";
+
 export interface TournamentSummary {
   id: string;
   name: string;

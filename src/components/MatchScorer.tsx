@@ -18,7 +18,7 @@ interface MatchScorerProps {
   players: readonly [string, string];
   config: MatchConfig;
   onExit: () => void;
-  onSave: (match: MatchState) => void;
+  onSave: (match: MatchState) => Promise<void>;
 }
 
 interface PendingCheckout {
@@ -66,6 +66,8 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingAction>(null);
   const [notice, setNotice] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
   const historyEndRef = useRef<HTMLDivElement>(null);
 
   const leg = currentLeg(match);
@@ -228,6 +230,17 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
     }
   };
 
+  const saveResult = async () => {
+    setSaveError("");
+    setSaving(true);
+    try {
+      await onSave(match);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "The result could not be saved.");
+      setSaving(false);
+    }
+  };
+
   if (match.completed && match.winner !== null) {
     const winner = match.winner;
     const loser: PlayerIndex = winner === 0 ? 1 : 0;
@@ -250,10 +263,11 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
             <div><span>Darts recorded</span><strong>{winnerStats.darts}</strong><strong>{loserStats.darts}</strong></div>
           </div>
           <div className="complete-actions">
-            <button className="secondary-button" type="button" onClick={undo}>Undo checkout</button>
-            <button className="primary-button" type="button" onClick={() => onSave(match)}>Save result</button>
+            <button className="secondary-button" type="button" disabled={saving} onClick={undo}>Undo checkout</button>
+            <button className="primary-button" type="button" disabled={saving} onClick={saveResult}>{saving ? "Saving…" : "Save result"}</button>
           </div>
-          <p className="prototype-note">This checkpoint saves locally. Tournament and Google Sheet saving arrive in later loops.</p>
+          {saveError && <p className="form-error" role="alert">{saveError}</p>}
+          <p className="prototype-note">The result is committed to Dart Party when you press Save result.</p>
         </section>
       </main>
     );
