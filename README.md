@@ -32,6 +32,8 @@ npm run typecheck
 npm run build
 ```
 
+Pull requests run the same checks in GitHub Actions. Merges to `main` build and deploy the static frontend through GitHub Pages once Pages is configured to use GitHub Actions.
+
 ## Persistence
 
 One master Google Sheet stores every tournament, match result, visit history, and replacement audit record. A match remains on the scoring device until the player taps **Save result**. Each final save is locked and written to its own match row, so multiple boards can finish simultaneously without overwriting each other.
