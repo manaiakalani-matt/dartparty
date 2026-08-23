@@ -10,7 +10,8 @@ var DP_SCHEMA_VERSION = 1;
 var DP_SHEETS = {
   tournaments: { name: "Tournaments", headers: ["id", "name", "status", "date", "createdAt", "updatedAt", "schemaVersion", "tournamentJson"] },
   matches: { name: "Matches", headers: ["tournamentId", "matchId", "status", "version", "updatedAt", "resultJson", "detailJson"] },
-  audit: { name: "Audit", headers: ["timestamp", "action", "tournamentId", "matchId", "previousJson", "nextJson"] }
+  audit: { name: "Audit", headers: ["timestamp", "action", "tournamentId", "matchId", "previousJson", "nextJson"] },
+  singles: { name: "Single Matches", headers: ["id", "playedAt", "playerOne", "playerTwo", "winner", "startingScore", "checkIn", "bestOf", "resultJson", "detailJson"] }
 };
 
 function setupDartParty() {
@@ -26,6 +27,8 @@ function doGet(event) {
     var action = String((event && event.parameter && event.parameter.action) || "listTournaments");
     if (action === "listTournaments") return jsonResponse_({ ok: true, tournaments: listTournaments_() });
     if (action === "getTournament") return jsonResponse_({ ok: true, tournament: getTournament_(requiredParameter_(event, "tournamentId")) });
+    if (action === "listSingleMatches") return jsonResponse_({ ok: true, matches: listSingleMatches_() });
+    if (action === "getSingleMatch") return jsonResponse_({ ok: true, match: getSingleMatch_(requiredParameter_(event, "id")) });
     return jsonResponse_({ ok: false, code: "UNKNOWN_ACTION", message: "Unknown action." });
   } catch (error) {
     return errorResponse_(error);
@@ -37,10 +40,68 @@ function doPost(event) {
     var request = parseRequest_(event);
     if (request.action === "createTournament") return jsonResponse_({ ok: true, tournament: createTournament_(request.tournament) });
     if (request.action === "saveMatch") return jsonResponse_(saveMatch_(request));
+    if (request.action === "saveSingleMatch") return jsonResponse_({ ok: true, match: saveSingleMatch_(request) });
     return jsonResponse_({ ok: false, code: "UNKNOWN_ACTION", message: "Unknown action." });
   } catch (error) {
     return errorResponse_(error);
   }
+}
+
+function saveSingleMatch_(request) {
+  validateSingleMatch_(request);
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var singlesSheet = sheet_(DP_SHEETS.singles);
+    var existingRow = findRow_(singlesSheet, 1, request.id);
+    if (existingRow) return singleMatchFromRow_(singlesSheet.getRange(existingRow, 1, 1, 10).getValues()[0]);
+    var detail = request.detail;
+    var summary = {
+      id: request.id,
+      playedAt: request.playedAt,
+      players: detail.players,
+      winner: detail.winner,
+      legsWon: detail.legsWon,
+      startingScore: detail.config.startingScore,
+      checkIn: detail.config.checkIn,
+      bestOf: detail.config.bestOf
+    };
+    singlesSheet.appendRow([request.id, request.playedAt, detail.players[0], detail.players[1], detail.players[detail.winner], detail.config.startingScore, detail.config.checkIn, detail.config.bestOf, JSON.stringify(summary), JSON.stringify(detail)]);
+    return { id: summary.id, playedAt: summary.playedAt, players: summary.players, winner: summary.winner, legsWon: summary.legsWon, startingScore: summary.startingScore, checkIn: summary.checkIn, bestOf: summary.bestOf, detail: detail };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function listSingleMatches_() {
+  var singlesSheet = sheet_(DP_SHEETS.singles);
+  if (singlesSheet.getLastRow() < 2) return [];
+  return singlesSheet.getRange(2, 1, singlesSheet.getLastRow() - 1, 10).getValues().map(function (row) {
+    return parseJson_(row[8]);
+  }).filter(Boolean).sort(function (a, b) { return String(b.playedAt).localeCompare(String(a.playedAt)); });
+}
+
+function getSingleMatch_(id) {
+  var singlesSheet = sheet_(DP_SHEETS.singles);
+  var row = findRow_(singlesSheet, 1, id);
+  if (!row) throw apiError_("NOT_FOUND", "Match not found.");
+  return singleMatchFromRow_(singlesSheet.getRange(row, 1, 1, 10).getValues()[0]);
+}
+
+function singleMatchFromRow_(row) {
+  var summary = parseJson_(row[8]);
+  summary.detail = parseJson_(row[9]);
+  return summary;
+}
+
+function validateSingleMatch_(request) {
+  var detail = request && request.detail;
+  if (!request || !request.id || !request.playedAt || !detail) throw apiError_("INVALID_REQUEST", "Match ID, date, and detail are required.");
+  if (!detail.completed || (detail.winner !== 0 && detail.winner !== 1)) throw apiError_("INVALID_RESULT", "Only a completed match can be saved.");
+  if (!Array.isArray(detail.players) || detail.players.length !== 2 || !String(detail.players[0]).trim() || !String(detail.players[1]).trim()) throw apiError_("INVALID_RESULT", "Two named players are required.");
+  if (!detail.config || Number(detail.config.startingScore) < 2 || Number(detail.config.bestOf) < 1 || Number(detail.config.bestOf) % 2 === 0) throw apiError_("INVALID_RESULT", "The match format is invalid.");
+  var target = Math.floor(Number(detail.config.bestOf) / 2) + 1;
+  if (!Array.isArray(detail.legsWon) || Number(detail.legsWon[detail.winner]) !== target || Number(detail.legsWon[detail.winner === 0 ? 1 : 0]) >= target) throw apiError_("INVALID_RESULT", "The leg score does not match the match format.");
 }
 
 function createTournament_(tournament) {

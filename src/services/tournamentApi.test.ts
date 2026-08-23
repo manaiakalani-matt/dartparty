@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { completeTournamentMatch, createTournament, type TournamentMatchResult } from "../domain/tournament";
-import { hydrateTournament, type SavedMatch, type TournamentSnapshot } from "./tournamentApi";
+import { hydrateTournament, TournamentApi, type SavedMatch, type TournamentSnapshot } from "./tournamentApi";
 
 const config = {
   id: "api_test",
@@ -51,5 +51,30 @@ describe("tournament API hydration", () => {
     expect(hydrated.status).toBe("completed");
     expect(hydrated.championId).toBe(final.playerOneId);
     expect(hydrated.matches.filter((match) => match.status === "completed")).toHaveLength(3);
+  });
+});
+
+describe("single match API", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("lists the separate Just Play history", async () => {
+    const matches = [{ id: "single_1", playedAt: "2026-08-23T06:00:00.000Z", players: ["Smith", "Jones"], winner: 0, legsWon: [2, 1], startingScore: 501, checkIn: "straight", bestOf: 3 }];
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ ok: true, matches }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new TournamentApi("https://example.com/api");
+
+    await expect(api.listSingleMatches()).resolves.toEqual(matches);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api?action=listSingleMatches");
+  });
+
+  it("posts a completed standalone match as text/plain", async () => {
+    const detail = { completed: true } as never;
+    const saved = { id: "single_2", detail };
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ ok: true, match: saved }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new TournamentApi("https://example.com/api");
+
+    await expect(api.saveSingleMatch({ id: "single_2", playedAt: "2026-08-23T06:00:00.000Z", detail })).resolves.toEqual(saved);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", expect.objectContaining({ method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" } }));
   });
 });
