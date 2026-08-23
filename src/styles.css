@@ -1292,8 +1292,9 @@ select:focus-visible {
 }
 .hub-hero h1 em { color: var(--orange); font-style: inherit; }
 .hub-actions { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 10px; }
-.hub-create { width: min(100%, 320px); }
-.hub-play { min-width: 180px; padding: 15px 24px; border: 1px solid var(--line); border-radius: 12px; color: #fff; background: var(--panel-raised); font-weight: 900; cursor: pointer; }
+.hub-create,
+.hub-play { width: min(100%, 320px); }
+.hub-play { padding: 15px 24px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line); border-radius: 12px; color: #fff; background: var(--panel-raised); font-weight: 900; cursor: pointer; }
 
 .tournament-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding-top: 32px; }
 .list-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
