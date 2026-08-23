@@ -69,8 +69,8 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
   const shareMatch = async () => {
     if (winner === null) return;
     const loser: PlayerIndex = winner === 0 ? 1 : 0;
-    const text = `${match.players[winner]} defeated ${match.players[loser]} ${match.legsWon[winner]}–${match.legsWon[loser]} · Dart Party`;
-    const shareData = { title: "Dart Party match result", text, url: window.location.href };
+    const text = `${match.players[winner]} defeated ${match.players[loser]} ${match.legsWon[winner]}–${match.legsWon[loser]} · Darty Party`;
+    const shareData = { title: "Darty Party match result", text, url: window.location.href };
 
     try {
       if (navigator.share) await navigator.share(shareData);
@@ -90,7 +90,7 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
         <button type="button" onClick={onBack}>← {backLabel}</button>
         <div className="brand-lockup compact-result">
           <span className="brand-target" aria-hidden="true"><i /></span>
-          <span><small>DART</small><strong>PARTY</strong></span>
+          <span><small>DARTY</small><strong>PARTY</strong></span>
         </div>
         <button type="button" onClick={shareMatch}>Share</button>
       </header>
