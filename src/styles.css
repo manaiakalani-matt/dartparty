@@ -1279,7 +1279,8 @@ select:focus-visible {
 }
 
 .hub-header .brand-lockup { grid-column: 1; }
-.hub-header > span { grid-column: 3; color: var(--muted); font-size: .65rem; font-weight: 800; text-align: right; text-transform: uppercase; }
+.hub-header > span { grid-column: 3; display: flex; align-items: center; justify-content: end; gap: 12px; color: var(--muted); font-size: .65rem; font-weight: 800; text-align: right; text-transform: uppercase; }
+.hub-header > span button { min-height: 34px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: transparent; font-size: .58rem; font-weight: 900; text-transform: uppercase; cursor: pointer; }
 .app-topbar .brand-lockup { grid-column: 2; }
 .app-topbar > button { justify-self: start; border: 0; color: var(--muted); background: transparent; font-size: .7rem; font-weight: 800; cursor: pointer; }
 .hub-header .brand-target,
@@ -1416,6 +1417,22 @@ select:focus-visible {
 .modal-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
 .modal-actions > button { min-height: 48px; border: 1px solid var(--line); border-radius: 10px; color: #fff; background: var(--panel-raised); font-size: .7rem; font-weight: 900; cursor: pointer; }
 .modal-actions .primary-button { padding: 9px; color: var(--ink); background: var(--orange); }
+.admin-pin-dialog > p:not(.eyebrow),
+.permanent-delete > p:not(.eyebrow) { color: var(--muted); font-size: .72rem; line-height: 1.55; }
+.admin-pin-dialog input,
+.permanent-delete input { width: 100%; min-height: 52px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: #fff; background: #0d0d0e; font: inherit; font-size: 1.2rem; letter-spacing: .12em; }
+.manage-screen { max-width: 1100px; }
+.manage-error { margin-top: 18px; }
+.manage-columns { padding: 28px 0 45px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.manage-row { min-height: 76px; margin-bottom: 9px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); }
+.manage-row > span { min-width: 0; display: grid; gap: 5px; }
+.manage-row strong { overflow: hidden; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 1.35rem; font-style: italic; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.manage-row small { color: var(--muted); font-size: .6rem; text-transform: uppercase; }
+.manage-row button { min-height: 38px; flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: #fff; background: var(--panel-raised); font-size: .6rem; font-weight: 900; cursor: pointer; }
+.manage-row > div { display: flex; gap: 6px; }
+.manage-row .danger-link { color: var(--red); }
+.danger-button { color: #fff !important; border-color: rgba(255, 103, 95, .55) !important; background: #9b2924 !important; }
+.danger-button:disabled { opacity: .4; }
 
 @media (max-width: 650px) {
   .tournament-lists,
@@ -1434,6 +1451,12 @@ select:focus-visible {
   .bull-off-players button { min-height: 92px; }
   .group-match-columns { margin-right: calc(clamp(14px, 4vw, 36px) * -1); padding-right: clamp(14px, 4vw, 36px); grid-template-columns: repeat(2, minmax(82vw, 1fr)); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; }
   .group-match-column { scroll-snap-align: start; }
+  .hub-header > span small { display: none; }
+  .manage-columns { grid-template-columns: 1fr; }
+  .manage-row { align-items: stretch; flex-direction: column; }
+  .manage-row > button,
+  .manage-row > div { width: 100%; }
+  .manage-row > div button { flex: 1; }
 }
 
 /* Safari on iOS 12 does not understand clamp() or dynamic viewport units. */

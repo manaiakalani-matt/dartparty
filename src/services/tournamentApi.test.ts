@@ -78,3 +78,27 @@ describe("single match API", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", expect.objectContaining({ method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" } }));
   });
 });
+
+describe("trash API", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("checks the organiser PIN while listing Trash", async () => {
+    const trash = { tournaments: [], matches: [] };
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ ok: true, trash }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new TournamentApi("https://example.com/api");
+
+    await expect(api.listTrash("1234")).resolves.toEqual(trash);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", expect.objectContaining({ body: JSON.stringify({ action: "listTrash", pin: "1234" }) }));
+  });
+
+  it("sends PIN-protected Trash changes", async () => {
+    const trash = { tournaments: [], matches: [] };
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ ok: true, trash }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new TournamentApi("https://example.com/api");
+
+    await expect(api.changeTrash("restoreItem", "1234", "tournament", "tournament_1")).resolves.toEqual(trash);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", expect.objectContaining({ body: JSON.stringify({ action: "restoreItem", pin: "1234", kind: "tournament", id: "tournament_1" }) }));
+  });
+});
