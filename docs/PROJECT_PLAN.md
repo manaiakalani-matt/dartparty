@@ -1,6 +1,6 @@
-# Dart Party implementation plan
+# Darty Party implementation plan
 
-Dart Party is a mobile-first X01 house-tournament app. Friends select an unplayed match, score it locally visit by visit, and save the complete result once at the end. The production architecture is a static web app backed by one Google Spreadsheet and a small Apps Script API.
+Darty Party is a mobile-first X01 house-tournament app. Friends select an unplayed match, score it locally visit by visit, and save the complete result once at the end. The production architecture is a static web app backed by one Google Spreadsheet and a small Apps Script API.
 
 ## Delivery loops
 

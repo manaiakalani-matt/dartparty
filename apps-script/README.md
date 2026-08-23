@@ -1,6 +1,6 @@
 # Google Sheets service
 
-This folder contains the deployed Apps Script backend for the one master Dart Party spreadsheet.
+This folder contains the deployed Apps Script backend for the one master Darty Party spreadsheet.
 
 ## What it stores
 

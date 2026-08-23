@@ -1,6 +1,6 @@
-# Dart Party
+# Darty Party
 
-A phone-first X01 darts tournament app for house parties. Dart Party keeps the tournament table simple while allowing several boards to play matches at the same time.
+A phone-first X01 darts tournament app for house parties. Darty Party keeps the tournament table simple while allowing several boards to play matches at the same time.
 
 ## Current prototype
 

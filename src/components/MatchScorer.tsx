@@ -267,7 +267,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
             <button className="primary-button" type="button" disabled={saving} onClick={saveResult}>{saving ? "Saving…" : "Save result"}</button>
           </div>
           {saveError && <p className="form-error" role="alert">{saveError}</p>}
-          <p className="prototype-note">The result is committed to Dart Party when you press Save result.</p>
+          <p className="prototype-note">The result is committed to Darty Party when you press Save result.</p>
         </section>
       </main>
     );
@@ -278,7 +278,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
       <header className="match-bar">
         <button type="button" onClick={leaveMatch}>← Exit</button>
         <div>
-          <span>DART PARTY</span>
+          <span>DARTY PARTY</span>
           <strong>{config.startingScore} · Best of {config.bestOf}</strong>
         </div>
         <span>Leg {leg.number}</span>
