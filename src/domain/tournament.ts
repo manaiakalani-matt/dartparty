@@ -1,4 +1,5 @@
 import { legsNeededToWin, type CheckIn } from "./x01";
+import { clonePlainData } from "../utils/compat";
 
 export type TournamentStructure = "knockout" | "single-group" | "two-groups";
 export type TournamentStatus = "active" | "completed";
@@ -159,24 +160,27 @@ function roundRobinRounds(playerIds: string[]): Array<Array<readonly [string, st
 function groupMatches(players: TournamentPlayer[], groupId: "A" | "B", bestOf: number): TournamentMatch[] {
   const playerIds = players.filter((player) => player.groupId === groupId).map((player) => player.id);
   let order = 0;
-  return roundRobinRounds(playerIds).flatMap((round, roundIndex) => round.map(([playerOneId, playerTwoId]) => {
-    order += 1;
-    return {
-      id: `group_${groupId.toLowerCase()}_${order}`,
-      stage: "group" as const,
-      stageLabel: `Group ${groupId}`,
-      groupId,
-      round: roundIndex + 1,
-      order,
-      bestOf,
-      playerOneId,
-      playerTwoId,
-      sourceOne: null,
-      sourceTwo: null,
-      status: "unplayed" as const,
-      result: null,
-    };
-  }));
+  return roundRobinRounds(playerIds).reduce<TournamentMatch[]>((matches, round, roundIndex) => {
+    round.forEach(([playerOneId, playerTwoId]) => {
+      order += 1;
+      matches.push({
+        id: `group_${groupId.toLowerCase()}_${order}`,
+        stage: "group",
+        stageLabel: `Group ${groupId}`,
+        groupId,
+        round: roundIndex + 1,
+        order,
+        bestOf,
+        playerOneId,
+        playerTwoId,
+        sourceOne: null,
+        sourceTwo: null,
+        status: "unplayed",
+        result: null,
+      });
+    });
+    return matches;
+  }, []);
 }
 
 interface KnockoutSlot {
@@ -259,7 +263,7 @@ const seedPositions = (size: number) => {
   let positions = [1, 2];
   while (positions.length < size) {
     const nextSize = positions.length * 2;
-    positions = positions.flatMap((seed) => [seed, nextSize + 1 - seed]);
+    positions = positions.reduce<number[]>((next, seed) => next.concat(seed, nextSize + 1 - seed), []);
   }
   return positions.slice(0, size);
 };
@@ -316,7 +320,7 @@ export function createTournament(input: CreateTournamentInput): Tournament {
   }
 
   return resolveTournament({
-    config: structuredClone(input.config),
+    config: clonePlainData(input.config),
     players,
     matches,
     status: "active",
@@ -435,7 +439,7 @@ const resolveSource = (tournament: Tournament, source: MatchSource | null): stri
 };
 
 function resolveTournament(tournament: Tournament): Tournament {
-  let next = structuredClone(tournament);
+  let next = clonePlainData(tournament);
   let changed = true;
 
   while (changed) {
@@ -485,7 +489,7 @@ export function completeTournamentMatch(
   return resolveTournament({
     ...tournament,
     matches: tournament.matches.map((item) => item.id === matchId
-      ? { ...item, status: "completed", result: structuredClone(result) }
+      ? { ...item, status: "completed", result: clonePlainData(result) }
       : item),
   });
 }
@@ -515,7 +519,7 @@ export function replaceTournamentMatchResult(
 
   const retained = tournament.matches
     .filter((match) => match.status === "completed" && match.id !== matchId && match.result)
-    .map((match) => ({ matchId: match.id, result: structuredClone(match.result!) }));
+    .map((match) => ({ matchId: match.id, result: clonePlainData(match.result!) }));
   let rebuilt: Tournament = {
     ...tournament,
     status: "active",

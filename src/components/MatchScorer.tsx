@@ -134,7 +134,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
         setNotice(`${players[scoringPlayer]} wins the match`);
       } else if (currentLeg(next).number !== beforeLeg) {
         setNotice(`${players[scoringPlayer]} wins leg ${beforeLeg}`);
-      } else if (currentLeg(next).visits.at(-1)?.bust) {
+      } else if (currentLeg(next).visits[currentLeg(next).visits.length - 1]?.bust) {
         setNotice("Bust — score restored");
       }
     } catch (error) {
@@ -191,7 +191,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
   };
 
   const undo = () => {
-    const previous = past.at(-1);
+    const previous = past[past.length - 1];
     if (!previous) return;
     setMatch(previous);
     setPast((history) => history.slice(0, -1));
