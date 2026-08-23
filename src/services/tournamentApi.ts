@@ -26,6 +26,21 @@ export interface TournamentSnapshot {
   savedMatches: SavedMatch[];
 }
 
+export interface SingleMatchSummary {
+  id: string;
+  playedAt: string;
+  players: readonly [string, string];
+  winner: 0 | 1;
+  legsWon: readonly [number, number];
+  startingScore: number;
+  checkIn: "straight" | "double";
+  bestOf: number;
+}
+
+export interface SavedSingleMatch extends SingleMatchSummary {
+  detail: MatchState;
+}
+
 export interface MatchConflict {
   ok: false;
   code: "MATCH_CONFLICT" | "STALE_REPLACEMENT" | "RESULT_LOCKED";
@@ -71,6 +86,26 @@ export class TournamentApi {
   async createTournament(tournament: Tournament): Promise<TournamentSnapshot> {
     const payload = await this.post<{ ok: true; tournament: TournamentSnapshot }>({ action: "createTournament", tournament });
     return payload.tournament;
+  }
+
+  async listSingleMatches(): Promise<SingleMatchSummary[]> {
+    const response = await fetch(`${this.endpoint}?action=listSingleMatches`);
+    const payload = await parseResponse<{ ok: true; matches: SingleMatchSummary[] }>(response);
+    return payload.matches;
+  }
+
+  async getSingleMatch(id: string): Promise<SavedSingleMatch> {
+    const url = new URL(this.endpoint);
+    url.searchParams.set("action", "getSingleMatch");
+    url.searchParams.set("id", id);
+    const response = await fetch(url);
+    const payload = await parseResponse<{ ok: true; match: SavedSingleMatch }>(response);
+    return payload.match;
+  }
+
+  async saveSingleMatch(input: { id: string; playedAt: string; detail: MatchState }): Promise<SavedSingleMatch> {
+    const payload = await this.post<{ ok: true; match: SavedSingleMatch }>({ action: "saveSingleMatch", ...input });
+    return payload.match;
   }
 
   saveMatch(input: {

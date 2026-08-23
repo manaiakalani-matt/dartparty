@@ -4,6 +4,8 @@ import { getPlayerMatchStats, type Leg, type MatchState, type PlayerIndex, type 
 interface MatchResultsProps {
   match: MatchState;
   onBack: () => void;
+  backLabel?: string;
+  onRematch?: () => void;
 }
 
 interface ResultRow {
@@ -41,7 +43,7 @@ const bestLeg = (match: MatchState, player: PlayerIndex) => {
   return dartCounts.length ? Math.min(...dartCounts) : null;
 };
 
-export function MatchResults({ match, onBack }: MatchResultsProps) {
+export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: MatchResultsProps) {
   const [expandedLegs, setExpandedLegs] = useState<Set<number>>(
     () => new Set(match.legs.length ? [match.legs[0].number] : []),
   );
@@ -85,7 +87,7 @@ export function MatchResults({ match, onBack }: MatchResultsProps) {
   return (
     <main className="results-screen">
       <header className="results-topbar">
-        <button type="button" onClick={onBack}>← Back</button>
+        <button type="button" onClick={onBack}>← {backLabel}</button>
         <div className="brand-lockup compact-result">
           <span className="brand-target" aria-hidden="true"><i /></span>
           <span><small>DART</small><strong>PARTY</strong></span>
@@ -159,6 +161,8 @@ export function MatchResults({ match, onBack }: MatchResultsProps) {
           );
         })}
       </section>
+
+      {onRematch && <section className="result-next-actions"><button className="primary-button" type="button" onClick={onRematch}>Rematch</button><button className="secondary-button" type="button" onClick={onBack}>Exit to home</button></section>}
 
       {shareNotice && <div className="result-share-notice" role="status">{shareNotice}</div>}
     </main>
