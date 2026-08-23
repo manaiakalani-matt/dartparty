@@ -92,6 +92,21 @@ describe("X01 match engine", () => {
     expect(match.legsWon).toEqual([2, 0]);
   });
 
+  it("uses the bull winner for odd legs and the other player for even legs", () => {
+    let match = createMatch(["Smith", "Jones"], {
+      startingScore: 40,
+      bestOf: 5,
+      checkIn: "straight",
+      startingPlayer: 1,
+    });
+
+    expect(currentLeg(match).starter).toBe(1);
+    match = submitVisit(match, { score: 40, checkoutDarts: 1 });
+    expect(currentLeg(match).starter).toBe(0);
+    match = submitVisit(match, { score: 40, checkoutDarts: 1 });
+    expect(currentLeg(match).starter).toBe(1);
+  });
+
   it("requires and records a double-in before scoring", () => {
     let match = createMatch(["Smith", "Jones"], {
       startingScore: 301,

@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { MatchScorer } from "./components/MatchScorer";
 import { MatchResults } from "./components/MatchResults";
 import { createTournament, standingsForGroup, type Tournament, type TournamentMatch, type TournamentMatchResult, type TournamentStructure } from "./domain/tournament";
-import { getPlayerMatchStats, type CheckIn, type MatchState } from "./domain/x01";
+import { getPlayerMatchStats, type CheckIn, type MatchState, type PlayerIndex } from "./domain/x01";
 import { DART_PARTY_API_URL, hydrateTournament, TournamentApi, type MatchConflict, type TournamentSnapshot } from "./services/tournamentApi";
 
-type Screen = "home" | "create" | "tournament" | "scorer" | "results";
+type Screen = "home" | "create" | "tournament" | "bull-off" | "scorer" | "results";
 interface StoredTournament { tournament: Tournament; scoredMatches: Record<string, MatchState>; versions: Record<string, number> }
 interface DraftTournament {
   name: string; startingScore: number; customScore: string; checkIn: CheckIn;
@@ -63,6 +63,10 @@ function ConflictDialog({ pending, tournament, busy, onKeep, onReplace }: { pend
   return <div className="modal-backdrop"><section className="result-modal"><p className="eyebrow">Result already saved</p><h2>Another board got there first</h2><p>{pending.conflict.message}</p>{tournament && pending.conflict.saved && <p className="manual-score">Saved version {pending.conflict.saved.version}</p>}<div className="modal-actions"><button type="button" disabled={busy} onClick={onKeep}>Keep saved result</button><button className="primary-button" type="button" disabled={busy || locked} onClick={onReplace}>{busy ? "Replacing…" : locked ? "Result locked" : "Replace it"}</button></div></section></div>;
 }
 
+function BullOff({ players, onBack, onWinner }: { players: readonly [string, string]; onBack: () => void; onWinner: (winner: PlayerIndex) => void }) {
+  return <main className="bull-off-screen"><header className="app-topbar"><button type="button" onClick={onBack}>← Match</button><Brand /><span /></header><section className="bull-off-card"><span className="bull-off-target" aria-hidden="true"><i /></span><p className="eyebrow">Decide who throws first</p><h1>Throw for bull</h1><p>Closest to the bull starts leg 1. The starting throw alternates every leg after that.</p><strong>Who won the bull?</strong><div className="bull-off-players">{players.map((player, index) => <button type="button" key={player} onClick={() => onWinner(index as PlayerIndex)}><span>{player}</span><small>Starts leg 1 →</small></button>)}</div></section></main>;
+}
+
 function TournamentView({ item, onHome, onRefresh, onStart, onResults, onManual }: { item: StoredTournament; onHome: () => void; onRefresh: () => void; onStart: (match: TournamentMatch) => void; onResults: (id: string) => void; onManual: (match: TournamentMatch) => void }) {
   const { tournament, scoredMatches } = item; const [tab, setTab] = useState<"matches" | "standings" | "bracket">("matches"); const [chosen, setChosen] = useState<string | null>(null);
   const groups = tournament.config.structure === "two-groups" ? (["A", "B"] as const) : (["A"] as const);
@@ -76,7 +80,7 @@ function TournamentView({ item, onHome, onRefresh, onStart, onResults, onManual 
 }
 
 export default function App() {
-  const [items, setItems] = useState<StoredTournament[]>([]); const [screen, setScreen] = useState<Screen>("home"); const [tournamentId, setTournamentId] = useState<string | null>(null); const [matchId, setMatchId] = useState<string | null>(null); const [manualMatch, setManualMatch] = useState<TournamentMatch | null>(null); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState(""); const [pendingReplacement, setPendingReplacement] = useState<PendingReplacement | null>(null); const [replacing, setReplacing] = useState(false);
+  const [items, setItems] = useState<StoredTournament[]>([]); const [screen, setScreen] = useState<Screen>("home"); const [tournamentId, setTournamentId] = useState<string | null>(null); const [matchId, setMatchId] = useState<string | null>(null); const [bullWinner, setBullWinner] = useState<PlayerIndex | null>(null); const [manualMatch, setManualMatch] = useState<TournamentMatch | null>(null); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState(""); const [pendingReplacement, setPendingReplacement] = useState<PendingReplacement | null>(null); const [replacing, setReplacing] = useState(false);
   const item = items.find(({ tournament }) => tournament.config.id === tournamentId) ?? null; const match = item?.tournament.matches.find((candidate) => candidate.id === matchId) ?? null;
   const putSnapshot = (snapshot: TournamentSnapshot) => { const next = storedTournament(snapshot); setItems((current) => [next, ...current.filter((value) => value.tournament.config.id !== next.tournament.config.id)]); return next; };
   const refreshTournament = async (id: string) => putSnapshot(await api.getTournament(id));
@@ -92,8 +96,9 @@ export default function App() {
   const conflict = pendingReplacement && <ConflictDialog pending={pendingReplacement} tournament={item?.tournament ?? null} busy={replacing} onKeep={() => void keepSaved()} onReplace={() => void replaceConflict()} />;
   if (loading) return <main className="hub-screen"><header className="hub-header"><Brand /><span>Connecting to tournament store…</span></header></main>;
   if (screen === "create") return <><TournamentSetup onCancel={() => setScreen("home")} onCreate={create} />{conflict}</>;
-  if (screen === "scorer" && item && match?.playerOneId && match.playerTwoId) return <><MatchScorer key={`${tournamentId}_${matchId}`} players={[playerName(item.tournament, match.playerOneId), playerName(item.tournament, match.playerTwoId)]} config={{ startingScore: item.tournament.config.startingScore, checkIn: item.tournament.config.checkIn, bestOf: match.bestOf, startingPlayer: 0 }} onExit={() => setScreen("tournament")} onSave={saveScored} />{conflict}</>;
+  if (screen === "bull-off" && item && match?.playerOneId && match.playerTwoId) return <BullOff players={[playerName(item.tournament, match.playerOneId), playerName(item.tournament, match.playerTwoId)]} onBack={() => { setBullWinner(null); setScreen("tournament"); }} onWinner={(winner) => { setBullWinner(winner); setScreen("scorer"); }} />;
+  if (screen === "scorer" && item && match?.playerOneId && match.playerTwoId && bullWinner !== null) return <><MatchScorer key={`${tournamentId}_${matchId}_${bullWinner}`} players={[playerName(item.tournament, match.playerOneId), playerName(item.tournament, match.playerTwoId)]} config={{ startingScore: item.tournament.config.startingScore, checkIn: item.tournament.config.checkIn, bestOf: match.bestOf, startingPlayer: bullWinner }} onExit={() => { setBullWinner(null); setScreen("tournament"); }} onSave={saveScored} />{conflict}</>;
   if (screen === "results" && item && matchId && item.scoredMatches[matchId]) return <MatchResults match={item.scoredMatches[matchId]} onBack={() => setScreen("tournament")} />;
-  if (screen === "tournament" && item) return <><TournamentView item={item} onHome={() => setScreen("home")} onRefresh={() => void refreshTournament(item.tournament.config.id)} onStart={(selected) => { setMatchId(selected.id); setScreen("scorer"); }} onResults={(id) => { setMatchId(id); setScreen("results"); }} onManual={setManualMatch} />{manualMatch && <ManualResult match={manualMatch} tournament={item.tournament} onCancel={() => setManualMatch(null)} onSave={saveManual} />}{conflict}</>;
+  if (screen === "tournament" && item) return <><TournamentView item={item} onHome={() => setScreen("home")} onRefresh={() => void refreshTournament(item.tournament.config.id)} onStart={(selected) => { setBullWinner(null); setMatchId(selected.id); setScreen("bull-off"); }} onResults={(id) => { setMatchId(id); setScreen("results"); }} onManual={setManualMatch} />{manualMatch && <ManualResult match={manualMatch} tournament={item.tournament} onCancel={() => setManualMatch(null)} onSave={saveManual} />}{conflict}</>;
   return <>{loadError && <div className="connection-error" role="alert">{loadError} <button type="button" onClick={() => void loadTournaments()}>Try again</button></div>}<Home items={items} onCreate={() => setScreen("create")} onOpen={(id) => { setTournamentId(id); setScreen("tournament"); void refreshTournament(id); }} /></>;
 }
