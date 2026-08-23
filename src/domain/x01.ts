@@ -331,7 +331,8 @@ export function getPlayerMatchStats(
   state: MatchState,
   player: PlayerIndex,
 ): PlayerMatchStats {
-  const visits = state.legs.flatMap((leg) => leg.visits).filter((visit) => visit.player === player);
+  const visits = state.legs.reduce<Visit[]>((allVisits, leg) => allVisits.concat(leg.visits), [])
+    .filter((visit) => visit.player === player);
   const points = visits.reduce((total, visit) => total + visit.countedScore, 0);
   const darts = visits.reduce((total, visit) => total + visit.dartsUsed, 0);
 

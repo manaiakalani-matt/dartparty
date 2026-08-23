@@ -32,7 +32,7 @@ const displayVisit = (visit?: Visit) => {
 };
 
 const countVisitsAtLeast = (match: MatchState, player: PlayerIndex, minimum: number) =>
-  match.legs.flatMap((leg) => leg.visits)
+  match.legs.reduce<Visit[]>((visits, leg) => visits.concat(leg.visits), [])
     .filter((visit) => visit.player === player && visit.countedScore >= minimum).length;
 
 const bestLeg = (match: MatchState, player: PlayerIndex) => {
