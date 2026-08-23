@@ -7,12 +7,27 @@
  */
 
 var DP_SCHEMA_VERSION = 1;
+var DP_ADMIN_PIN_HASH_PROPERTY = "DARTY_PARTY_ADMIN_PIN_HASH";
 var DP_SHEETS = {
-  tournaments: { name: "Tournaments", headers: ["id", "name", "status", "date", "createdAt", "updatedAt", "schemaVersion", "tournamentJson"] },
+  tournaments: { name: "Tournaments", headers: ["id", "name", "status", "date", "createdAt", "updatedAt", "schemaVersion", "tournamentJson", "deletedAt"] },
   matches: { name: "Matches", headers: ["tournamentId", "matchId", "status", "version", "updatedAt", "resultJson", "detailJson"] },
   audit: { name: "Audit", headers: ["timestamp", "action", "tournamentId", "matchId", "previousJson", "nextJson"] },
-  singles: { name: "Single Matches", headers: ["id", "playedAt", "playerOne", "playerTwo", "winner", "startingScore", "checkIn", "bestOf", "resultJson", "detailJson"] }
+  singles: { name: "Single Matches", headers: ["id", "playedAt", "playerOne", "playerTwo", "winner", "startingScore", "checkIn", "bestOf", "resultJson", "detailJson", "deletedAt"] }
 };
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu("Darty Party").addItem("Set organiser PIN", "configureDartPartyAdminPin").addToUi();
+}
+
+function configureDartPartyAdminPin() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt("Darty Party organiser PIN", "Enter a 4–6 digit PIN.", ui.ButtonSet.OK_CANCEL);
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+  var pin = String(response.getResponseText() || "").trim();
+  if (!/^\d{4,6}$/.test(pin)) return ui.alert("The PIN must be 4–6 digits.");
+  PropertiesService.getScriptProperties().setProperty(DP_ADMIN_PIN_HASH_PROPERTY, hashPin_(pin));
+  ui.alert("The organiser PIN is ready.");
+}
 
 function setupDartParty() {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -41,6 +56,10 @@ function doPost(event) {
     if (request.action === "createTournament") return jsonResponse_({ ok: true, tournament: createTournament_(request.tournament) });
     if (request.action === "saveMatch") return jsonResponse_(saveMatch_(request));
     if (request.action === "saveSingleMatch") return jsonResponse_({ ok: true, match: saveSingleMatch_(request) });
+    if (request.action === "listTrash") return jsonResponse_({ ok: true, trash: listTrash_(request.pin) });
+    if (request.action === "trashItem") return jsonResponse_({ ok: true, trash: changeTrashItem_(request, "trash") });
+    if (request.action === "restoreItem") return jsonResponse_({ ok: true, trash: changeTrashItem_(request, "restore") });
+    if (request.action === "purgeItem") return jsonResponse_({ ok: true, trash: changeTrashItem_(request, "purge") });
     return jsonResponse_({ ok: false, code: "UNKNOWN_ACTION", message: "Unknown action." });
   } catch (error) {
     return errorResponse_(error);
@@ -76,7 +95,7 @@ function saveSingleMatch_(request) {
 function listSingleMatches_() {
   var singlesSheet = sheet_(DP_SHEETS.singles);
   if (singlesSheet.getLastRow() < 2) return [];
-  return singlesSheet.getRange(2, 1, singlesSheet.getLastRow() - 1, 10).getValues().map(function (row) {
+  return singlesSheet.getRange(2, 1, singlesSheet.getLastRow() - 1, 11).getValues().filter(function (row) { return !row[10]; }).map(function (row) {
     return parseJson_(row[8]);
   }).filter(Boolean).sort(function (a, b) { return String(b.playedAt).localeCompare(String(a.playedAt)); });
 }
@@ -85,7 +104,9 @@ function getSingleMatch_(id) {
   var singlesSheet = sheet_(DP_SHEETS.singles);
   var row = findRow_(singlesSheet, 1, id);
   if (!row) throw apiError_("NOT_FOUND", "Match not found.");
-  return singleMatchFromRow_(singlesSheet.getRange(row, 1, 1, 10).getValues()[0]);
+  var values = singlesSheet.getRange(row, 1, 1, 11).getValues()[0];
+  if (values[10]) throw apiError_("NOT_FOUND", "Match not found.");
+  return singleMatchFromRow_(values);
 }
 
 function singleMatchFromRow_(row) {
@@ -169,7 +190,7 @@ function saveMatch_(request) {
 function listTournaments_() {
   var sheet = sheet_(DP_SHEETS.tournaments);
   if (sheet.getLastRow() < 2) return [];
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues().map(function (row) {
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues().filter(function (row) { return !row[8]; }).map(function (row) {
     return { id: row[0], name: row[1], status: row[2], date: row[3], createdAt: row[4], updatedAt: row[5] };
   }).sort(function (a, b) { return String(b.updatedAt).localeCompare(String(a.updatedAt)); });
 }
@@ -188,7 +209,8 @@ function tournamentRecord_(tournamentId) {
   var sheet = sheet_(DP_SHEETS.tournaments);
   var row = findRow_(sheet, 1, tournamentId);
   if (!row) throw apiError_("NOT_FOUND", "Tournament not found.");
-  var values = sheet.getRange(row, 1, 1, 8).getValues()[0];
+  var values = sheet.getRange(row, 1, 1, 9).getValues()[0];
+  if (values[8]) throw apiError_("NOT_FOUND", "Tournament not found.");
   return { row: row, values: values, tournament: JSON.parse(values[7]) };
 }
 
@@ -262,11 +284,95 @@ function conflictMessage_(tournament, match, result) {
   return names[result.winnerId] + " defeated " + names[loserId] + " " + winnerLegs + "–" + loserLegs + ". Your local result has not been saved.";
 }
 
+function listTrash_(pin) {
+  verifyAdminPin_(pin);
+  ensureTrashHeaders_();
+  return listTrashUnchecked_();
+}
+
+function listTrashUnchecked_() {
+  var tournamentsSheet = sheet_(DP_SHEETS.tournaments);
+  var singlesSheet = sheet_(DP_SHEETS.singles);
+  var tournaments = tournamentsSheet.getLastRow() < 2 ? [] : tournamentsSheet.getRange(2, 1, tournamentsSheet.getLastRow() - 1, 9).getValues()
+    .filter(function (row) { return Boolean(row[8]); })
+    .map(function (row) { return { id: row[0], name: row[1], status: row[2], date: row[3], createdAt: row[4], updatedAt: row[5], deletedAt: row[8] }; });
+  var matches = singlesSheet.getLastRow() < 2 ? [] : singlesSheet.getRange(2, 1, singlesSheet.getLastRow() - 1, 11).getValues()
+    .filter(function (row) { return Boolean(row[10]); })
+    .map(function (row) {
+      var summary = parseJson_(row[8]);
+      if (!summary) return null;
+      summary.deletedAt = row[10];
+      return summary;
+    }).filter(Boolean);
+  return { tournaments: tournaments, matches: matches };
+}
+
+function changeTrashItem_(request, operation) {
+  verifyAdminPin_(request.pin);
+  if (["tournament", "single"].indexOf(request.kind) === -1 || !request.id) throw apiError_("INVALID_REQUEST", "Item type and ID are required.");
+  ensureTrashHeaders_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var definition = request.kind === "tournament" ? DP_SHEETS.tournaments : DP_SHEETS.singles;
+    var deletedAtColumn = request.kind === "tournament" ? 9 : 11;
+    var targetSheet = sheet_(definition);
+    var row = findRow_(targetSheet, 1, request.id);
+    if (!row) throw apiError_("NOT_FOUND", "Item not found.");
+    var deletedAt = targetSheet.getRange(row, deletedAtColumn).getValue();
+    if (operation === "trash") {
+      if (!deletedAt) targetSheet.getRange(row, deletedAtColumn).setValue(new Date().toISOString());
+    } else if (operation === "restore") {
+      targetSheet.getRange(row, deletedAtColumn).clearContent();
+    } else {
+      if (!deletedAt) throw apiError_("NOT_TRASHED", "Move the item to Trash before deleting it permanently.");
+      if (request.kind === "tournament") {
+        deleteRowsWhere_(sheet_(DP_SHEETS.matches), 1, request.id);
+        deleteRowsWhere_(sheet_(DP_SHEETS.audit), 3, request.id);
+      }
+      targetSheet.deleteRow(row);
+    }
+    return listTrashUnchecked_();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteRowsWhere_(sheet, column, value) {
+  if (sheet.getLastRow() < 2) return;
+  var values = sheet.getRange(2, column, sheet.getLastRow() - 1, 1).getValues();
+  for (var index = values.length - 1; index >= 0; index -= 1) {
+    if (String(values[index][0]) === String(value)) sheet.deleteRow(index + 2);
+  }
+}
+
+function ensureTrashHeaders_() {
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  ensureSheet_(spreadsheet, DP_SHEETS.tournaments);
+  ensureSheet_(spreadsheet, DP_SHEETS.singles);
+}
+
+function verifyAdminPin_(pin) {
+  var expected = PropertiesService.getScriptProperties().getProperty(DP_ADMIN_PIN_HASH_PROPERTY);
+  if (!expected) throw apiError_("PIN_NOT_CONFIGURED", "The organiser PIN has not been configured yet.");
+  if (!pin || hashPin_(String(pin)) !== expected) throw apiError_("INVALID_PIN", "That organiser PIN is incorrect.");
+}
+
+function hashPin_(pin) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(pin)).map(function (byte) {
+    var value = (byte + 256) % 256;
+    return (value < 16 ? "0" : "") + value.toString(16);
+  }).join("");
+}
+
 function ensureSheet_(spreadsheet, definition) {
   var sheet = spreadsheet.getSheetByName(definition.name) || spreadsheet.insertSheet(definition.name);
   if (sheet.getLastRow() === 0) sheet.appendRow(definition.headers);
   var existing = sheet.getRange(1, 1, 1, definition.headers.length).getValues()[0];
-  if (existing.join("|") !== definition.headers.join("|")) throw new Error(definition.name + " has unexpected headers. Refusing to overwrite it.");
+  for (var index = 0; index < definition.headers.length; index += 1) {
+    if (existing[index] && existing[index] !== definition.headers[index]) throw new Error(definition.name + " has unexpected headers. Refusing to overwrite it.");
+    if (!existing[index]) sheet.getRange(1, index + 1).setValue(definition.headers[index]);
+  }
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, definition.headers.length).setFontWeight("bold");
 }

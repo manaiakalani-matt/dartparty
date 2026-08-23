@@ -42,6 +42,11 @@ export interface SavedSingleMatch extends SingleMatchSummary {
   detail: MatchState;
 }
 
+export type TrashItemKind = "tournament" | "single";
+export interface TrashedTournament extends TournamentSummary { deletedAt: string }
+export interface TrashedSingleMatch extends SingleMatchSummary { deletedAt: string }
+export interface TrashData { tournaments: TrashedTournament[]; matches: TrashedSingleMatch[] }
+
 export interface MatchConflict {
   ok: false;
   code: "MATCH_CONFLICT" | "STALE_REPLACEMENT" | "RESULT_LOCKED";
@@ -119,6 +124,16 @@ export class TournamentApi {
     expectedVersion?: number;
   }): Promise<MatchSaved | MatchConflict> {
     return this.post({ action: "saveMatch", ...input });
+  }
+
+  async listTrash(pin: string): Promise<TrashData> {
+    const payload = await this.post<{ ok: true; trash: TrashData }>({ action: "listTrash", pin });
+    return payload.trash;
+  }
+
+  async changeTrash(action: "trashItem" | "restoreItem" | "purgeItem", pin: string, kind: TrashItemKind, id: string): Promise<TrashData> {
+    const payload = await this.post<{ ok: true; trash: TrashData }>({ action, pin, kind, id });
+    return payload.trash;
   }
 
   private async post<T>(body: unknown): Promise<T> {
