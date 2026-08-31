@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { checkoutRoute } from "../domain/checkouts";
+import { cueForVisit, playScoreCue, stopScoreAudio } from "../services/scoreAudio";
 import {
   createMatch,
   currentLeg,
@@ -33,6 +34,16 @@ interface PendingDoubleIn {
 }
 
 type PendingAction = PendingCheckout | PendingDoubleIn | null;
+
+const SOUND_PREFERENCE_KEY = "dartyPartySoundEnabled";
+
+const initialSoundPreference = () => {
+  try {
+    return window.localStorage.getItem(SOUND_PREFERENCE_KEY) !== "false";
+  } catch {
+    return true;
+  }
+};
 
 interface VisitRow {
   playerOne?: Visit;
@@ -68,6 +79,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
   const [notice, setNotice] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(initialSoundPreference);
   const historyEndRef = useRef<HTMLDivElement>(null);
 
   const leg = currentLeg(match);
@@ -128,7 +140,13 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
       const beforeLeg = currentLeg(match).number;
       const scoringPlayer = match.currentPlayer;
       const next = submitVisit(match, { score, doubleInHit, checkoutDarts });
+      const completedLeg = next.legs.find((item) => item.number === beforeLeg);
+      const submittedVisit = completedLeg?.visits[completedLeg.visits.length - 1];
       rememberAndSet(next);
+
+      if (soundEnabled && submittedVisit) {
+        playScoreCue(cueForVisit(score, submittedVisit.bust, Boolean(checkoutDarts)));
+      }
 
       if (next.completed) {
         setNotice(`${players[scoringPlayer]} wins the match`);
@@ -199,6 +217,14 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
     setSelectedVisitId(null);
     setPending(null);
     setNotice("Last action undone");
+  };
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    try { window.localStorage.setItem(SOUND_PREFERENCE_KEY, String(next)); } catch { /* Preference remains active for this visit. */ }
+    if (next) playScoreCue({ text: "Sound on", rate: 0.92, pitch: 0.9 });
+    else stopScoreAudio();
   };
 
   const selectVisit = (visit?: Visit) => {
@@ -394,6 +420,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
         <div className="keypad-tools">
           <button type="button" onClick={clearDigits}>Clear</button>
           <button type="button" disabled={!past.length} onClick={undo}>↶ Undo</button>
+          <button type="button" aria-pressed={soundEnabled} onClick={toggleSound}>{soundEnabled ? "🔊 Sound" : "🔇 Muted"}</button>
         </div>
       </section>
     </main>
