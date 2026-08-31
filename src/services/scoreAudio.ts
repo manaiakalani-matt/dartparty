@@ -6,8 +6,7 @@ export type ScoreAudioCue = {
 
 export const cueForVisit = (score: number, bust: boolean, checkout: boolean): ScoreAudioCue => {
   if (bust) return { text: "Bust", rate: 0.82, pitch: 0.82 };
-  if (checkout) return { text: "Bwaaaaaaaah!", rate: 0.48, pitch: 0.62 };
-  if (score === 180) return { text: "Oooone huuundred and eeeighty!", rate: 0.62, pitch: 0.95 };
+  if (checkout) return { text: "Baaaaaaaah!", rate: 0.48, pitch: 0.62 };
   return { text: `${score} scored`, rate: 0.92, pitch: 0.9 };
 };
 

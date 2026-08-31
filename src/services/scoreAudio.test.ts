@@ -6,12 +6,12 @@ describe("score audio cues", () => {
     expect(cueForVisit(85, false, false).text).toBe("85 scored");
   });
 
-  it("uses the special elongated 180 call", () => {
-    expect(cueForVisit(180, false, false).text).toBe("Oooone huuundred and eeeighty!");
+  it("announces 180 like any other accepted visit", () => {
+    expect(cueForVisit(180, false, false).text).toBe("180 scored");
   });
 
   it("uses the checkout call instead of the entered score", () => {
-    expect(cueForVisit(41, false, true).text).toBe("Bwaaaaaaaah!");
+    expect(cueForVisit(41, false, true).text).toBe("Baaaaaaaah!");
   });
 
   it("gives bust priority over every other call", () => {
