@@ -28,25 +28,26 @@ export interface TournamentSnapshot {
   savedMatches: SavedMatch[];
 }
 
-export interface SingleMatchSummary {
+export interface PlaySessionSummary {
   id: string;
-  playedAt: string;
+  startedAt: string;
+  updatedAt: string;
+  endedAt: string | null;
   players: readonly [string, string];
-  winner: 0 | 1;
   legsWon: readonly [number, number];
+  completedLegs: number;
   startingScore: number;
   checkIn: "straight" | "double";
-  bestOf: number;
 }
 
-export interface SavedSingleMatch extends SingleMatchSummary {
+export interface SavedPlaySession extends PlaySessionSummary {
   detail: MatchState;
 }
 
 export type TrashItemKind = "tournament" | "single";
 export interface TrashedTournament extends TournamentSummary { deletedAt: string }
-export interface TrashedSingleMatch extends SingleMatchSummary { deletedAt: string }
-export interface TrashData { tournaments: TrashedTournament[]; matches: TrashedSingleMatch[] }
+export interface TrashedPlaySession extends PlaySessionSummary { deletedAt: string }
+export interface TrashData { tournaments: TrashedTournament[]; matches: TrashedPlaySession[] }
 
 export interface MatchConflict {
   ok: false;
@@ -95,23 +96,23 @@ export class TournamentApi {
     return payload.tournament;
   }
 
-  async listSingleMatches(): Promise<SingleMatchSummary[]> {
-    const response = await fetch(`${this.endpoint}?action=listSingleMatches`);
-    const payload = await parseResponse<{ ok: true; matches: SingleMatchSummary[] }>(response);
+  async listPlaySessions(): Promise<PlaySessionSummary[]> {
+    const response = await fetch(`${this.endpoint}?action=listPlaySessions`);
+    const payload = await parseResponse<{ ok: true; matches: PlaySessionSummary[] }>(response);
     return payload.matches;
   }
 
-  async getSingleMatch(id: string): Promise<SavedSingleMatch> {
+  async getPlaySession(id: string): Promise<SavedPlaySession> {
     const url = new URL(this.endpoint);
-    url.searchParams.set("action", "getSingleMatch");
+    url.searchParams.set("action", "getPlaySession");
     url.searchParams.set("id", id);
     const response = await fetch(url);
-    const payload = await parseResponse<{ ok: true; match: SavedSingleMatch }>(response);
+    const payload = await parseResponse<{ ok: true; match: SavedPlaySession }>(response);
     return payload.match;
   }
 
-  async saveSingleMatch(input: { id: string; playedAt: string; detail: MatchState }): Promise<SavedSingleMatch> {
-    const payload = await this.post<{ ok: true; match: SavedSingleMatch }>({ action: "saveSingleMatch", ...input });
+  async savePlaySession(input: { id: string; startedAt: string; ended: boolean; detail: MatchState }): Promise<SavedPlaySession> {
+    const payload = await this.post<{ ok: true; match: SavedPlaySession }>({ action: "savePlaySession", ...input });
     return payload.match;
   }
 

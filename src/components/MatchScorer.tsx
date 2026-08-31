@@ -18,8 +18,10 @@ import {
 interface MatchScorerProps {
   players: readonly [string, string];
   config: MatchConfig;
-  onExit: () => void;
+  initialState?: MatchState;
+  onExit: (match: MatchState) => Promise<void> | void;
   onSave: (match: MatchState) => Promise<void>;
+  onProgress?: (match: MatchState) => Promise<void>;
 }
 
 interface PendingCheckout {
@@ -79,8 +81,8 @@ const scoreLabel = (visit?: Visit) => {
   return String(visit.enteredScore);
 };
 
-export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProps) {
-  const [match, setMatch] = useState(() => createMatch(players, config));
+export function MatchScorer({ players, config, initialState, onExit, onSave, onProgress }: MatchScorerProps) {
+  const [match, setMatch] = useState(() => initialState ?? createMatch(players, config));
   const [past, setPast] = useState<MatchState[]>([]);
   const [entry, setEntry] = useState("");
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
   const historyEndRef = useRef<HTMLDivElement>(null);
+  const progressQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const leg = currentLeg(match);
   const rows = useMemo(() => rowsForLeg(leg.visits), [leg.visits]);
@@ -132,6 +135,14 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
     setNotice(error instanceof Error ? error.message : "That score could not be entered.");
   };
 
+  const saveProgress = (next: MatchState) => {
+    if (!onProgress) return;
+    const queued = progressQueueRef.current.then(() => onProgress(next));
+    progressQueueRef.current = queued.catch((error) => {
+      setSaveError(error instanceof Error ? error.message : "This session could not be autosaved.");
+    });
+  };
+
   const appendDigit = (digit: string) => {
     if (pending || match.completed) return;
     setEntry((current) => {
@@ -164,6 +175,8 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
       const completedLeg = next.legs.find((item) => item.number === beforeLeg);
       const submittedVisit = completedLeg?.visits[completedLeg.visits.length - 1];
       rememberAndSet(next);
+
+      if (currentLeg(next).number !== beforeLeg) saveProgress(next);
 
       if (soundEnabled && submittedVisit) {
         playScoreCue(cueForVisit(score, submittedVisit.bust, Boolean(checkoutDarts)), selectedVoiceKey);
@@ -283,10 +296,21 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  const leaveMatch = () => {
+  const leaveMatch = async () => {
     const hasScoring = match.legs.some((item) => item.visits.length > 0);
-    if (!hasScoring || window.confirm("Leave this match? Unsaved scoring will be lost.")) {
-      onExit();
+    const message = config.openEnded
+      ? "End this session and save the current score?"
+      : "Leave this match? Unsaved scoring will be lost.";
+    if (!hasScoring || window.confirm(message)) {
+      setSaveError("");
+      setSaving(true);
+      try {
+        await progressQueueRef.current;
+        await onExit(match);
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : "The session could not be saved.");
+        setSaving(false);
+      }
     }
   };
 
@@ -336,10 +360,10 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
   return (
     <main className="scorer-shell">
       <header className="match-bar">
-        <button type="button" onClick={leaveMatch}>← Exit</button>
+        <button type="button" disabled={saving} onClick={() => void leaveMatch()}>{saving ? "Saving…" : "← Exit"}</button>
         <div>
           <span>DARTY PARTY</span>
-          <strong>{config.startingScore} · Best of {config.bestOf}</strong>
+          <strong>{config.startingScore} · {config.openEnded ? "Play until you stop" : `Best of ${config.bestOf}`}</strong>
         </div>
         <span>Leg {leg.number}</span>
       </header>
@@ -411,6 +435,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
 
       <section className="keypad-panel" aria-label="Score keypad">
         {notice && <div className="toast" role="status">{notice}</div>}
+        {saveError && <div className="toast" role="alert">{saveError}</div>}
 
         {voiceSettingsOpen && (
           <div className="voice-settings" role="dialog" aria-label="Score voice settings">

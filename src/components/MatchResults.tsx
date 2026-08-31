@@ -49,6 +49,7 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
   );
   const [shareNotice, setShareNotice] = useState("");
   const winner = match.winner;
+  const sessionMode = Boolean(match.config.openEnded);
   const stats = useMemo(
     () => [getPlayerMatchStats(match, 0), getPlayerMatchStats(match, 1)] as const,
     [match],
@@ -67,10 +68,14 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
   const collapseAll = () => setExpandedLegs(new Set());
 
   const shareMatch = async () => {
-    if (winner === null) return;
-    const loser: PlayerIndex = winner === 0 ? 1 : 0;
-    const text = `${match.players[winner]} defeated ${match.players[loser]} ${match.legsWon[winner]}–${match.legsWon[loser]} · Darty Party`;
-    const shareData = { title: "Darty Party match result", text, url: window.location.href };
+    if (!sessionMode && winner === null) return;
+    const text = sessionMode
+      ? `${match.players[0]} ${match.legsWon[0]}–${match.legsWon[1]} ${match.players[1]} · Darty Party session`
+      : (() => {
+        const loser: PlayerIndex = winner === 0 ? 1 : 0;
+        return `${match.players[winner!]} defeated ${match.players[loser]} ${match.legsWon[winner!]}–${match.legsWon[loser]} · Darty Party`;
+      })();
+    const shareData = { title: sessionMode ? "Darty Party session" : "Darty Party match result", text, url: window.location.href };
 
     try {
       if (navigator.share) await navigator.share(shareData);
@@ -96,19 +101,19 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
       </header>
 
       <section className="results-hero">
-        <p className="eyebrow">Match result</p>
+        <p className="eyebrow">{sessionMode ? "Session summary" : "Match result"}</p>
         <div className="result-player-grid">
-          <div className={winner === 0 ? "winner" : ""}>
-            <span>{winner === 0 ? "WINNER" : "PLAYER"}</span>
+          <div className={!sessionMode && winner === 0 ? "winner" : ""}>
+            <span>{!sessionMode && winner === 0 ? "WINNER" : "PLAYER"}</span>
             <strong>{match.players[0]}</strong>
           </div>
           <b>{match.legsWon[0]}–{match.legsWon[1]}</b>
-          <div className={winner === 1 ? "winner" : ""}>
-            <span>{winner === 1 ? "WINNER" : "PLAYER"}</span>
+          <div className={!sessionMode && winner === 1 ? "winner" : ""}>
+            <span>{!sessionMode && winner === 1 ? "WINNER" : "PLAYER"}</span>
             <strong>{match.players[1]}</strong>
           </div>
         </div>
-        <p>{match.config.startingScore} · {match.config.checkIn === "double" ? "Double in" : "Straight in"} · Best of {match.config.bestOf}</p>
+        <p>{match.config.startingScore} · {match.config.checkIn === "double" ? "Double in" : "Straight in"}{sessionMode ? " · Open session" : ` · Best of ${match.config.bestOf}`}</p>
       </section>
 
       <section className="match-stat-table" aria-label="Match statistics">
@@ -162,7 +167,7 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
         })}
       </section>
 
-      {onRematch && <section className="result-next-actions"><button className="primary-button" type="button" onClick={onRematch}>Rematch</button><button className="secondary-button" type="button" onClick={onBack}>Exit to home</button></section>}
+      {onRematch && <section className="result-next-actions"><button className="primary-button" type="button" onClick={onRematch}>{sessionMode ? "New session" : "Rematch"}</button><button className="secondary-button" type="button" onClick={onBack}>Exit to home</button></section>}
 
       {shareNotice && <div className="result-share-notice" role="status">{shareNotice}</div>}
     </main>

@@ -6,6 +6,7 @@ export interface MatchConfig {
   bestOf: number;
   checkIn: CheckIn;
   startingPlayer: PlayerIndex;
+  openEnded?: boolean;
 }
 
 export interface VisitInput {
@@ -249,7 +250,8 @@ function applyVisit(state: MatchState, input: VisitInput, visitId: string): Matc
   const legsWon: readonly [number, number] = player === 0
     ? [state.legsWon[0] + 1, state.legsWon[1]]
     : [state.legsWon[0], state.legsWon[1] + 1];
-  const matchWon = legsWon[player] >= legsNeededToWin(state.config.bestOf);
+  const matchWon = !state.config.openEnded
+    && legsWon[player] >= legsNeededToWin(state.config.bestOf);
 
   if (matchWon) {
     return {

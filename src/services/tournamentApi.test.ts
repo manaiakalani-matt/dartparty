@@ -54,28 +54,28 @@ describe("tournament API hydration", () => {
   });
 });
 
-describe("single match API", () => {
+describe("Just Play session API", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("lists the separate Just Play history", async () => {
-    const matches = [{ id: "single_1", playedAt: "2026-08-23T06:00:00.000Z", players: ["Smith", "Jones"], winner: 0, legsWon: [2, 1], startingScore: 501, checkIn: "straight", bestOf: 3 }];
+    const matches = [{ id: "session_1", startedAt: "2026-08-23T06:00:00.000Z", updatedAt: "2026-08-23T06:10:00.000Z", endedAt: null, players: ["Smith", "Jones"], legsWon: [2, 1], completedLegs: 3, startingScore: 501, checkIn: "straight" }];
     const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ ok: true, matches }) });
     vi.stubGlobal("fetch", fetchMock);
     const api = new TournamentApi("https://example.com/api");
 
-    await expect(api.listSingleMatches()).resolves.toEqual(matches);
-    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api?action=listSingleMatches");
+    await expect(api.listPlaySessions()).resolves.toEqual(matches);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api?action=listPlaySessions");
   });
 
-  it("posts a completed standalone match as text/plain", async () => {
-    const detail = { completed: true } as never;
-    const saved = { id: "single_2", detail };
+  it("posts an open session snapshot as text/plain", async () => {
+    const detail = { completed: false, winner: null } as never;
+    const saved = { id: "session_2", detail };
     const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ ok: true, match: saved }) });
     vi.stubGlobal("fetch", fetchMock);
     const api = new TournamentApi("https://example.com/api");
 
-    await expect(api.saveSingleMatch({ id: "single_2", playedAt: "2026-08-23T06:00:00.000Z", detail })).resolves.toEqual(saved);
-    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", expect.objectContaining({ method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" } }));
+    await expect(api.savePlaySession({ id: "session_2", startedAt: "2026-08-23T06:00:00.000Z", ended: false, detail })).resolves.toEqual(saved);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", expect.objectContaining({ method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "savePlaySession", id: "session_2", startedAt: "2026-08-23T06:00:00.000Z", ended: false, detail }) }));
   });
 });
 

@@ -90,6 +90,21 @@ type SingleMatchRow = {
   deleted_at: string | null;
 };
 
+type PlaySessionRow = {
+  id: string;
+  started_at: string;
+  updated_at: string;
+  ended_at: string | null;
+  player_one: string;
+  player_two: string;
+  starting_score: number;
+  check_in: "straight" | "double";
+  completed_legs: number;
+  result_json: string;
+  detail_json: string;
+  deleted_at: string | null;
+};
+
 class ApiError extends Error {
   constructor(readonly code: ApiCode, message: string) {
     super(message);
@@ -605,6 +620,116 @@ const saveSingleMatch = async (db: D1Database, request: JsonObject) => {
   return getSingleMatch(db, id);
 };
 
+const playSessionSummary = (row: PlaySessionRow) => parseJson<JsonObject>(row.result_json);
+
+const listPlaySessions = async (db: D1Database) => {
+  const rows = await db.prepare(`
+    SELECT * FROM play_sessions
+    WHERE deleted_at IS NULL
+    ORDER BY updated_at DESC
+  `).all<PlaySessionRow>();
+  return rows.results.map(playSessionSummary).filter((value): value is JsonObject => Boolean(value));
+};
+
+const getPlaySession = async (db: D1Database, id: string) => {
+  const row = await db.prepare(`
+    SELECT * FROM play_sessions
+    WHERE id = ? AND deleted_at IS NULL
+  `).bind(id).first<PlaySessionRow>();
+  if (!row) throw new ApiError("NOT_FOUND", "Session not found.");
+  return { ...playSessionSummary(row), detail: parseJson<unknown>(row.detail_json) };
+};
+
+const savePlaySession = async (db: D1Database, request: JsonObject) => {
+  const id = requiredString(request.id, "INVALID_REQUEST", "Session ID, start date, and detail are required.");
+  const startedAt = requiredString(request.startedAt, "INVALID_REQUEST", "Session ID, start date, and detail are required.");
+  if (typeof request.ended !== "boolean" || !isRecord(request.detail)) {
+    throw new ApiError("INVALID_REQUEST", "Session state and ended status are required.");
+  }
+  const detail = request.detail;
+  if (detail.completed !== false || detail.winner !== null) {
+    throw new ApiError("INVALID_RESULT", "An open session cannot have a match winner.");
+  }
+  if (!Array.isArray(detail.players)
+    || detail.players.length !== 2
+    || detail.players.some((player) => typeof player !== "string" || !player.trim())) {
+    throw new ApiError("INVALID_RESULT", "Two named players are required.");
+  }
+  if (!isRecord(detail.config)
+    || detail.config.openEnded !== true
+    || !Number.isInteger(detail.config.startingScore)
+    || Number(detail.config.startingScore) < 2
+    || (detail.config.checkIn !== "straight" && detail.config.checkIn !== "double")
+    || (detail.config.startingPlayer !== 0 && detail.config.startingPlayer !== 1)) {
+    throw new ApiError("INVALID_RESULT", "The session format is invalid.");
+  }
+  if (!Array.isArray(detail.legsWon)
+    || detail.legsWon.length !== 2
+    || detail.legsWon.some((value) => !Number.isInteger(value) || Number(value) < 0)
+    || !Array.isArray(detail.legs)
+    || detail.legs.length < 1) {
+    throw new ApiError("INVALID_RESULT", "The session leg score is invalid.");
+  }
+
+  const completedByPlayer: [number, number] = [0, 0];
+  for (const leg of detail.legs) {
+    if (!isRecord(leg) || (leg.winner !== null && leg.winner !== 0 && leg.winner !== 1)) {
+      throw new ApiError("INVALID_RESULT", "The saved session contains an invalid leg.");
+    }
+    if (leg.winner === 0 || leg.winner === 1) completedByPlayer[leg.winner] += 1;
+  }
+  if (Number(detail.legsWon[0]) !== completedByPlayer[0]
+    || Number(detail.legsWon[1]) !== completedByPlayer[1]) {
+    throw new ApiError("INVALID_RESULT", "The saved legs do not match the session score.");
+  }
+
+  const now = new Date().toISOString();
+  const endedAt = request.ended ? now : null;
+  const players: [string, string] = [String(detail.players[0]), String(detail.players[1])];
+  const completedLegs = completedByPlayer[0] + completedByPlayer[1];
+  const summary = {
+    id,
+    startedAt,
+    updatedAt: now,
+    endedAt,
+    players,
+    legsWon: completedByPlayer,
+    completedLegs,
+    startingScore: Number(detail.config.startingScore),
+    checkIn: detail.config.checkIn,
+  };
+
+  await db.prepare(`
+    INSERT INTO play_sessions (
+      id, started_at, updated_at, ended_at, player_one, player_two,
+      starting_score, check_in, completed_legs, result_json, detail_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      updated_at = excluded.updated_at,
+      ended_at = COALESCE(play_sessions.ended_at, excluded.ended_at),
+      player_one = excluded.player_one,
+      player_two = excluded.player_two,
+      starting_score = excluded.starting_score,
+      check_in = excluded.check_in,
+      completed_legs = excluded.completed_legs,
+      result_json = excluded.result_json,
+      detail_json = excluded.detail_json
+  `).bind(
+    id,
+    startedAt,
+    now,
+    endedAt,
+    players[0],
+    players[1],
+    summary.startingScore,
+    summary.checkIn,
+    completedLegs,
+    JSON.stringify(summary),
+    JSON.stringify(detail),
+  ).run();
+  return getPlaySession(db, id);
+};
+
 const verifyAdminPin = async (provided: unknown, expected: string | undefined) => {
   if (!expected) throw new ApiError("PIN_NOT_CONFIGURED", "The organiser PIN has not been configured yet.");
   if (typeof provided !== "string" || !provided) throw new ApiError("INVALID_PIN", "That organiser PIN is incorrect.");
@@ -631,9 +756,9 @@ const listTrashUnchecked = async (db: D1Database) => {
       FROM tournaments WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC
     `).all<Omit<TournamentRow, "tournament_json">>(),
     db.prepare(`
-      SELECT * FROM single_matches
+      SELECT * FROM play_sessions
       WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC
-    `).all<SingleMatchRow>(),
+    `).all<PlaySessionRow>(),
   ]);
   return {
     tournaments: tournaments.results.map((row) => ({
@@ -646,7 +771,7 @@ const listTrashUnchecked = async (db: D1Database) => {
       deletedAt: row.deleted_at,
     })),
     matches: singles.results.map((row) => ({
-      ...singleSummary(row),
+      ...playSessionSummary(row),
       deletedAt: row.deleted_at,
     })),
   };
@@ -658,7 +783,7 @@ const changeTrashItem = async (db: D1Database, request: JsonObject, operation: "
   if (kind !== "tournament" && kind !== "single") {
     throw new ApiError("INVALID_REQUEST", "Item type and ID are required.");
   }
-  const table = kind === "tournament" ? "tournaments" : "single_matches";
+  const table = kind === "tournament" ? "tournaments" : "play_sessions";
   const row = await db.prepare(`SELECT deleted_at FROM ${table} WHERE id = ?`).bind(id).first<{ deleted_at: string | null }>();
   if (!row) throw new ApiError("NOT_FOUND", "Item not found.");
 
@@ -687,6 +812,11 @@ const handleGet = async (request: Request, env: Env) => {
     const id = requiredString(url.searchParams.get("id"), "INVALID_REQUEST", "id is required.");
     return json({ ok: true, match: await getSingleMatch(env.DB, id) });
   }
+  if (action === "listPlaySessions") return json({ ok: true, matches: await listPlaySessions(env.DB) });
+  if (action === "getPlaySession") {
+    const id = requiredString(url.searchParams.get("id"), "INVALID_REQUEST", "id is required.");
+    return json({ ok: true, match: await getPlaySession(env.DB, id) });
+  }
   throw new ApiError("UNKNOWN_ACTION", "Unknown action.");
 };
 
@@ -696,6 +826,7 @@ const handlePost = async (request: Request, env: Env) => {
   if (action === "createTournament") return json({ ok: true, tournament: await createTournament(env.DB, body.tournament) });
   if (action === "saveMatch") return json(await saveMatch(env.DB, body));
   if (action === "saveSingleMatch") return json({ ok: true, match: await saveSingleMatch(env.DB, body) });
+  if (action === "savePlaySession") return json({ ok: true, match: await savePlaySession(env.DB, body) });
   if (action === "listTrash") {
     await verifyAdminPin(body.pin, env.ADMIN_PIN);
     return json({ ok: true, trash: await listTrashUnchecked(env.DB) });

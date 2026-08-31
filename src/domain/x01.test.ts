@@ -107,6 +107,24 @@ describe("X01 match engine", () => {
     expect(currentLeg(match).starter).toBe(1);
   });
 
+  it("keeps an open-ended session running after completed legs", () => {
+    let match = createMatch(["Smith", "Jones"], {
+      startingScore: 40,
+      bestOf: 1,
+      checkIn: "straight",
+      startingPlayer: 0,
+      openEnded: true,
+    });
+
+    match = submitVisit(match, { score: 40, checkoutDarts: 1 });
+    expect(match).toMatchObject({ completed: false, winner: null, legsWon: [1, 0] });
+    expect(currentLeg(match)).toMatchObject({ number: 2, starter: 1, winner: null });
+
+    match = submitVisit(match, { score: 40, checkoutDarts: 1 });
+    expect(match).toMatchObject({ completed: false, winner: null, legsWon: [1, 1] });
+    expect(currentLeg(match)).toMatchObject({ number: 3, starter: 0, winner: null });
+  });
+
   it("requires and records a double-in before scoring", () => {
     let match = createMatch(["Smith", "Jones"], {
       startingScore: 301,
