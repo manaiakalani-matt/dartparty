@@ -281,7 +281,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
       return;
     }
     setSelectedVisitId(visit.id);
-    setEntry(String(visit.enteredScore));
+    setEntry("");
   };
 
   useEffect(() => {
