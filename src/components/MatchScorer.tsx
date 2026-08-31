@@ -194,10 +194,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
     }
   };
 
-  const enterScore = () => {
-    if (pending || match.completed || entry === "") return;
-    const score = Number(entry);
-
+  const submitScore = (score: number) => {
     if (selectedVisitId) {
       try {
         rememberAndSet(editCurrentLegVisit(match, selectedVisitId, score));
@@ -221,6 +218,17 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
     } catch (error) {
       reportError(error);
     }
+  };
+
+  const enterScore = () => {
+    if (pending || match.completed || entry === "") return;
+    submitScore(Number(entry));
+  };
+
+  const enterPreset = (score: number) => {
+    if (pending || match.completed) return;
+    setEntry(String(score));
+    submitScore(score);
   };
 
   const confirmDoubleIn = () => {
@@ -489,13 +497,21 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
           <strong>{entry || "—"}</strong>
         </div>
 
-        <div className="keypad-grid">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
-            <button key={digit} type="button" onClick={() => appendDigit(String(digit))}>{digit}</button>
-          ))}
-          <button className="utility" type="button" onClick={backspace} aria-label="Backspace">⌫</button>
-          <button type="button" onClick={() => appendDigit("0")}>0</button>
-          <button className="enter" type="button" onClick={enterScore}>ENTER</button>
+        <div className="scoring-controls">
+          <div className="preset-scores" aria-label="Common low scores">
+            {[26, 41, 45].map((score) => <button key={score} type="button" onClick={() => enterPreset(score)}>{score}</button>)}
+          </div>
+          <div className="keypad-grid">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
+              <button key={digit} type="button" onClick={() => appendDigit(String(digit))}>{digit}</button>
+            ))}
+            <button className="utility" type="button" onClick={backspace} aria-label="Backspace">⌫</button>
+            <button type="button" onClick={() => appendDigit("0")}>0</button>
+            <button className="enter" type="button" onClick={enterScore}>ENTER</button>
+          </div>
+          <div className="preset-scores" aria-label="Common high scores">
+            {[60, 85, 100].map((score) => <button key={score} type="button" onClick={() => enterPreset(score)}>{score}</button>)}
+          </div>
         </div>
 
         <div className="keypad-tools">

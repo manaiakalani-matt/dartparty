@@ -646,6 +646,35 @@ select:focus-visible {
   cursor: pointer;
 }
 
+.scoring-controls {
+  display: grid;
+  grid-template-columns: minmax(44px, 0.58fr) minmax(180px, 3fr) minmax(44px, 0.58fr);
+  gap: 6px;
+}
+
+.preset-scores {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.preset-scores button {
+  min-width: 0;
+  border: 1px solid rgba(216, 255, 114, 0.28);
+  border-radius: 10px;
+  color: var(--lime);
+  background: linear-gradient(180deg, rgba(216, 255, 114, 0.12), rgba(216, 255, 114, 0.05));
+  font-family: "Barlow Condensed", Impact, sans-serif;
+  font-size: clamp(1.05rem, 4vw, 1.35rem);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.preset-scores button:active {
+  transform: translateY(1px);
+  background: rgba(216, 255, 114, 0.16);
+}
+
 .keypad-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
