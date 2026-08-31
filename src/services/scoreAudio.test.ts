@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cueForVisit } from "./scoreAudio";
+import { cueForVisit, voiceKey } from "./scoreAudio";
 
 describe("score audio cues", () => {
   it("announces an ordinary accepted visit", () => {
@@ -16,5 +16,10 @@ describe("score audio cues", () => {
 
   it("gives bust priority over every other call", () => {
     expect(cueForVisit(180, true, true).text).toBe("Bust");
+  });
+
+  it("creates a stable key for a device voice", () => {
+    const voice = { voiceURI: "voice-1", name: "Example", lang: "en-NZ" } as SpeechSynthesisVoice;
+    expect(voiceKey(voice)).toBe("voice-1::Example::en-NZ");
   });
 });

@@ -10,14 +10,24 @@ export const cueForVisit = (score: number, bust: boolean, checkout: boolean): Sc
   return { text: `${score} scored`, rate: 0.92, pitch: 0.9 };
 };
 
-export const playScoreCue = (cue: ScoreAudioCue) => {
+export const voiceKey = (voice: SpeechSynthesisVoice) => `${voice.voiceURI}::${voice.name}::${voice.lang}`;
+
+export const englishScoreVoices = () => {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return [];
+  return window.speechSynthesis.getVoices()
+    .filter((voice) => voice.lang.toLowerCase().startsWith("en"))
+    .sort((left, right) => left.lang.localeCompare(right.lang) || left.name.localeCompare(right.name));
+};
+
+export const playScoreCue = (cue: ScoreAudioCue, selectedVoiceKey = "") => {
   if (typeof window === "undefined" || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
 
   const speech = window.speechSynthesis;
   const utterance = new SpeechSynthesisUtterance(cue.text);
   const voices = speech.getVoices();
   const preferredLanguages = ["en-NZ", "en-AU", "en-GB"];
-  const voice = preferredLanguages
+  const selectedVoice = voices.find((item) => voiceKey(item) === selectedVoiceKey);
+  const voice = selectedVoice ?? preferredLanguages
     .map((language) => voices.find((item) => item.lang === language))
     .find(Boolean) ?? voices.find((item) => item.lang.toLowerCase().startsWith("en"));
 

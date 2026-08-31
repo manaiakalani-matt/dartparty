@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { checkoutRoute } from "../domain/checkouts";
-import { cueForVisit, playScoreCue, stopScoreAudio } from "../services/scoreAudio";
+import { cueForVisit, englishScoreVoices, playScoreCue, stopScoreAudio, voiceKey } from "../services/scoreAudio";
 import {
   createMatch,
   currentLeg,
@@ -36,12 +36,21 @@ interface PendingDoubleIn {
 type PendingAction = PendingCheckout | PendingDoubleIn | null;
 
 const SOUND_PREFERENCE_KEY = "dartyPartySoundEnabled";
+const VOICE_PREFERENCE_KEY = "dartyPartyScoreVoice";
 
 const initialSoundPreference = () => {
   try {
     return window.localStorage.getItem(SOUND_PREFERENCE_KEY) !== "false";
   } catch {
     return true;
+  }
+};
+
+const initialVoicePreference = () => {
+  try {
+    return window.localStorage.getItem(VOICE_PREFERENCE_KEY) ?? "";
+  } catch {
+    return "";
   }
 };
 
@@ -80,6 +89,9 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(initialSoundPreference);
+  const [selectedVoiceKey, setSelectedVoiceKey] = useState(initialVoicePreference);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
   const historyEndRef = useRef<HTMLDivElement>(null);
 
   const leg = currentLeg(match);
@@ -98,6 +110,15 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
     const timer = window.setTimeout(() => setNotice(""), 1800);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const speech = window.speechSynthesis;
+    const refreshVoices = () => setAvailableVoices(englishScoreVoices());
+    refreshVoices();
+    speech.addEventListener("voiceschanged", refreshVoices);
+    return () => speech.removeEventListener("voiceschanged", refreshVoices);
+  }, []);
 
   const rememberAndSet = (next: MatchState) => {
     setPast((history) => [...history, match]);
@@ -145,7 +166,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
       rememberAndSet(next);
 
       if (soundEnabled && submittedVisit) {
-        playScoreCue(cueForVisit(score, submittedVisit.bust, Boolean(checkoutDarts)));
+        playScoreCue(cueForVisit(score, submittedVisit.bust, Boolean(checkoutDarts)), selectedVoiceKey);
       }
 
       if (next.completed) {
@@ -223,8 +244,21 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
     const next = !soundEnabled;
     setSoundEnabled(next);
     try { window.localStorage.setItem(SOUND_PREFERENCE_KEY, String(next)); } catch { /* Preference remains active for this visit. */ }
-    if (next) playScoreCue({ text: "Sound on", rate: 0.92, pitch: 0.9 });
+    if (next) playScoreCue({ text: "Sound on", rate: 0.92, pitch: 0.9 }, selectedVoiceKey);
     else stopScoreAudio();
+  };
+
+  const selectVoice = (key: string) => {
+    setSelectedVoiceKey(key);
+    try { window.localStorage.setItem(VOICE_PREFERENCE_KEY, key); } catch { /* Preference remains active for this visit. */ }
+  };
+
+  const testVoice = () => {
+    if (!soundEnabled) {
+      setSoundEnabled(true);
+      try { window.localStorage.setItem(SOUND_PREFERENCE_KEY, "true"); } catch { /* Preference remains active for this visit. */ }
+    }
+    playScoreCue(cueForVisit(85, false, false), selectedVoiceKey);
   };
 
   const selectVisit = (visit?: Visit) => {
@@ -378,6 +412,28 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
       <section className="keypad-panel" aria-label="Score keypad">
         {notice && <div className="toast" role="status">{notice}</div>}
 
+        {voiceSettingsOpen && (
+          <div className="voice-settings" role="dialog" aria-label="Score voice settings">
+            <div className="voice-settings-head">
+              <div><span>Score voice</span><strong>Choose and test this device’s voice</strong></div>
+              <button type="button" aria-label="Close voice settings" onClick={() => setVoiceSettingsOpen(false)}>×</button>
+            </div>
+            <label>
+              <span>English voice</span>
+              <select value={selectedVoiceKey} onChange={(event) => selectVoice(event.target.value)}>
+                <option value="">Automatic</option>
+                {availableVoices.map((voice) => (
+                  <option key={voiceKey(voice)} value={voiceKey(voice)}>{voice.name} · {voice.lang}</option>
+                ))}
+              </select>
+            </label>
+            <div className="voice-settings-actions">
+              <button type="button" onClick={toggleSound}>{soundEnabled ? "Mute sound" : "Turn sound on"}</button>
+              <button className="confirm" type="button" onClick={testVoice}>Test voice</button>
+            </div>
+          </div>
+        )}
+
         {pending?.type === "double-in" && (
           <div className="decision-bar">
             <div><span>{players[match.currentPlayer]} is not in</span><strong>Did this {pending.score || 0} visit include a double?</strong></div>
@@ -420,7 +476,7 @@ export function MatchScorer({ players, config, onExit, onSave }: MatchScorerProp
         <div className="keypad-tools">
           <button type="button" onClick={clearDigits}>Clear</button>
           <button type="button" disabled={!past.length} onClick={undo}>↶ Undo</button>
-          <button type="button" aria-pressed={soundEnabled} onClick={toggleSound}>{soundEnabled ? "🔊 Sound" : "🔇 Muted"}</button>
+          <button type="button" aria-expanded={voiceSettingsOpen} onClick={() => setVoiceSettingsOpen(true)}>{soundEnabled ? "🔊 Voice" : "🔇 Voice"}</button>
         </div>
       </section>
     </main>
