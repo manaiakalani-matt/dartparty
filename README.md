@@ -10,7 +10,7 @@ A phone-first X01 darts tournament app for house parties. Darty Party keeps the 
 - Round-robin schedules, byes, knockout progression, stage-specific match lengths, and live standings
 - Full visit-by-visit scorer with bust and checkout handling, undo, and inline visit editing
 - Manual result entry and detailed match results
-- Live Google Sheets persistence through the deployed Apps Script API
+- Fast Cloudflare Worker API with D1 database persistence
 - Concurrent boards with first-save-wins conflict protection and explicit replacement
 
 The product and implementation plan is in [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md).
@@ -36,6 +36,18 @@ Pull requests run the same checks in GitHub Actions. Merges to `main` build and 
 
 ## Persistence
 
-One master Google Sheet stores every tournament, match result, visit history, and replacement audit record. A match remains on the scoring device until the player taps **Save result**. Each final save is locked and written to its own match row, so multiple boards can finish simultaneously without overwriting each other.
+Cloudflare D1 stores every tournament, match result, visit history, and replacement audit record. A match remains on the scoring device until the player taps **Save result**. Each final save uses an atomic version check against its own match row, so multiple boards can finish simultaneously without overwriting each other.
 
 If two devices save the same match, the first result wins. The second device sees the saved score and can either keep it or explicitly replace it. Replacements use version checks and are blocked after a dependent knockout match has been completed.
+
+The original Apps Script implementation remains under `apps-script/` as a legacy reference and rollback option. The production React app continues to deploy to the same GitHub Pages URL while using the Worker at `https://darty-party-api.mattsdarts.workers.dev` for data.
+
+## Cloudflare backend
+
+```bash
+npm run worker:types
+npm run worker:check
+npm run worker:dev
+```
+
+D1 migrations live in `migrations/`. Production deploys use `npm run worker:deploy`; the organiser PIN is stored as the `ADMIN_PIN` Worker secret and is never committed.
