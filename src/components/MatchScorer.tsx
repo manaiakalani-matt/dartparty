@@ -420,6 +420,8 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
                 className={`${row.playerOne?.bust ? "bust" : ""} ${selectedVisitId === row.playerOne?.id ? "editing" : ""}`}
                 type="button"
                 disabled={!row.playerOne}
+                aria-label={row.playerOne ? `Edit ${players[0]}'s visit ${index + 1}, scored ${scoreLabel(row.playerOne)}` : undefined}
+                aria-pressed={selectedVisitId === row.playerOne?.id}
                 onClick={() => selectVisit(row.playerOne)}
               >
                 {scoreLabel(row.playerOne)}
@@ -430,6 +432,8 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
                 className={`${row.playerTwo?.bust ? "bust" : ""} ${selectedVisitId === row.playerTwo?.id ? "editing" : ""}`}
                 type="button"
                 disabled={!row.playerTwo}
+                aria-label={row.playerTwo ? `Edit ${players[1]}'s visit ${index + 1}, scored ${scoreLabel(row.playerTwo)}` : undefined}
+                aria-pressed={selectedVisitId === row.playerTwo?.id}
                 onClick={() => selectVisit(row.playerTwo)}
               >
                 {scoreLabel(row.playerTwo)}
@@ -494,23 +498,24 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
 
         <div className={`entry-display ${selectedVisitId ? "editing" : ""}`}>
           <span>{selectedVisitId ? "EDIT VISIT" : `${players[match.currentPlayer]} SCORED`}</span>
-          <strong>{entry || "—"}</strong>
+          <strong aria-live="polite">{entry || "—"}</strong>
+          {selectedVisitId && <button type="button" onClick={cancelEditing}>Cancel edit</button>}
         </div>
 
         <div className="scoring-controls">
           <div className="preset-scores" aria-label="Common low scores">
-            {[26, 41, 45].map((score) => <button key={score} type="button" onClick={() => enterPreset(score)}>{score}</button>)}
+            {[26, 41, 45].map((score) => <button key={score} type="button" disabled={Boolean(pending) || match.completed} onClick={() => enterPreset(score)}>{score}</button>)}
           </div>
           <div className="keypad-grid">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
-              <button key={digit} type="button" onClick={() => appendDigit(String(digit))}>{digit}</button>
+              <button key={digit} type="button" disabled={Boolean(pending) || match.completed} onClick={() => appendDigit(String(digit))}>{digit}</button>
             ))}
-            <button className="utility" type="button" onClick={backspace} aria-label="Backspace">⌫</button>
-            <button type="button" onClick={() => appendDigit("0")}>0</button>
-            <button className="enter" type="button" onClick={enterScore}>ENTER</button>
+            <button className="utility" type="button" disabled={Boolean(pending) || match.completed} onClick={backspace} aria-label="Backspace">⌫</button>
+            <button type="button" disabled={Boolean(pending) || match.completed} onClick={() => appendDigit("0")}>0</button>
+            <button className="enter" type="button" disabled={Boolean(pending) || match.completed || entry === ""} onClick={enterScore}>ENTER</button>
           </div>
           <div className="preset-scores" aria-label="Common high scores">
-            {[60, 85, 100].map((score) => <button key={score} type="button" onClick={() => enterPreset(score)}>{score}</button>)}
+            {[60, 85, 100].map((score) => <button key={score} type="button" disabled={Boolean(pending) || match.completed} onClick={() => enterPreset(score)}>{score}</button>)}
           </div>
         </div>
 

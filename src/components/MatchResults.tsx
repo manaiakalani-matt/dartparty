@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getPlayerMatchStats, type Leg, type MatchState, type PlayerIndex, type Visit } from "../domain/x01";
 
 interface MatchResultsProps {
@@ -45,7 +45,7 @@ const bestLeg = (match: MatchState, player: PlayerIndex) => {
 
 export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: MatchResultsProps) {
   const [expandedLegs, setExpandedLegs] = useState<Set<number>>(
-    () => new Set(match.legs.length ? [match.legs[0].number] : []),
+    () => new Set(match.legs.length ? [match.legs[match.legs.length - 1].number] : []),
   );
   const [shareNotice, setShareNotice] = useState("");
   const winner = match.winner;
@@ -54,6 +54,7 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
     () => [getPlayerMatchStats(match, 0), getPlayerMatchStats(match, 1)] as const,
     [match],
   );
+  const bestLegs = useMemo(() => [bestLeg(match, 0), bestLeg(match, 1)] as const, [match]);
 
   const toggleLeg = (legNumber: number) => {
     setExpandedLegs((current) => {
@@ -66,6 +67,12 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
 
   const expandAll = () => setExpandedLegs(new Set(match.legs.map((leg) => leg.number)));
   const collapseAll = () => setExpandedLegs(new Set());
+
+  useEffect(() => {
+    if (!shareNotice) return;
+    const timer = window.setTimeout(() => setShareNotice(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [shareNotice]);
 
   const shareMatch = async () => {
     if (!sessionMode && winner === null) return;
@@ -123,7 +130,7 @@ export function MatchResults({ match, onBack, backLabel = "Back", onRematch }: M
         <div><strong>{countVisitsAtLeast(match, 0, 100)}</strong><span>100+ visits</span><strong>{countVisitsAtLeast(match, 1, 100)}</strong></div>
         <div><strong>{countVisitsAtLeast(match, 0, 140)}</strong><span>140+ visits</span><strong>{countVisitsAtLeast(match, 1, 140)}</strong></div>
         <div><strong>{stats[0].oneEighties}</strong><span>180s</span><strong>{stats[1].oneEighties}</strong></div>
-        <div><strong>{bestLeg(match, 0) ?? "—"}</strong><span>Best leg</span><strong>{bestLeg(match, 1) ?? "—"}</strong></div>
+        <div><strong>{bestLegs[0] === null ? "—" : `${bestLegs[0]} darts`}</strong><span>Best leg</span><strong>{bestLegs[1] === null ? "—" : `${bestLegs[1]} darts`}</strong></div>
       </section>
 
       <section className="leg-results">
