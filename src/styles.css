@@ -856,10 +856,11 @@ textarea:focus-visible {
   position: absolute;
   top: 8px;
   right: 11px;
+  bottom: max(8px, env(safe-area-inset-bottom));
   left: 11px;
   z-index: 5;
-  inset: 8px 11px auto;
-  min-height: 98px;
+  inset: 8px 11px max(8px, env(safe-area-inset-bottom));
+  align-content: center;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 7px;
@@ -908,6 +909,20 @@ textarea:focus-visible {
 
 .decision-bar.checkout-decision {
   grid-template-columns: 1.3fr repeat(3, 1fr);
+}
+
+.decision-bar .decision-cancel {
+  grid-column: 1 / -1;
+  min-height: 34px;
+  border-color: transparent;
+  color: var(--muted);
+  background: transparent;
+}
+
+.keypad-panel.deciding > .entry-display,
+.keypad-panel.deciding > .scoring-controls,
+.keypad-panel.deciding > .keypad-tools {
+  visibility: hidden;
 }
 
 /* Completion */

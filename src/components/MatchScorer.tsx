@@ -96,6 +96,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
   const historyEndRef = useRef<HTMLDivElement>(null);
   const progressQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const lastSubmissionRef = useRef(0);
 
   const leg = currentLeg(match);
   const rows = useMemo(() => rowsForLeg(leg.visits), [leg.visits]);
@@ -137,6 +138,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
 
   const saveProgress = (next: MatchState) => {
     if (!onProgress) return;
+    setSaveError("");
     const queued = progressQueueRef.current.then(() => onProgress(next));
     progressQueueRef.current = queued.catch((error) => {
       setSaveError(error instanceof Error ? error.message : "This session could not be autosaved.");
@@ -175,6 +177,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
       const completedLeg = next.legs.find((item) => item.number === beforeLeg);
       const submittedVisit = completedLeg?.visits[completedLeg.visits.length - 1];
       rememberAndSet(next);
+      lastSubmissionRef.current = Date.now();
 
       if (currentLeg(next).number !== beforeLeg) saveProgress(next);
 
@@ -195,9 +198,11 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
   };
 
   const submitScore = (score: number) => {
+    if (Date.now() - lastSubmissionRef.current < 350) return;
     if (selectedVisitId) {
       try {
         rememberAndSet(editCurrentLegVisit(match, selectedVisitId, score));
+        lastSubmissionRef.current = Date.now();
         setNotice("Visit updated");
       } catch (error) {
         reportError(error);
@@ -253,12 +258,14 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
   const undo = () => {
     const previous = past[past.length - 1];
     if (!previous) return;
+    const undoesCompletedLeg = currentLeg(previous).number !== currentLeg(match).number;
     setMatch(previous);
     setPast((history) => history.slice(0, -1));
     setEntry("");
     setSelectedVisitId(null);
     setPending(null);
     setNotice("Last action undone");
+    if (config.openEnded && undoesCompletedLeg) saveProgress(previous);
   };
 
   const toggleSound = () => {
@@ -445,7 +452,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
         </div>
       </section>
 
-      <section className="keypad-panel" aria-label="Score keypad">
+      <section className={`keypad-panel ${pending ? "deciding" : ""}`} aria-label="Score keypad">
         {notice && <div className="toast" role="status">{notice}</div>}
         {saveError && <div className="toast" role="alert">{saveError}</div>}
 
@@ -476,6 +483,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
             <div><span>{players[match.currentPlayer]} is not in</span><strong>Did this {pending.score || 0} visit include a double?</strong></div>
             <button type="button" onClick={noDoubleIn}>No double · score 0</button>
             <button className="confirm" type="button" onClick={confirmDoubleIn}>Double hit · count {pending.score}</button>
+            <button className="decision-cancel" type="button" onClick={clearDigits}>Change score</button>
           </div>
         )}
 
@@ -493,6 +501,7 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
                 {darts}
               </button>
             ))}
+            <button className="decision-cancel" type="button" onClick={clearDigits}>Change score</button>
           </div>
         )}
 
