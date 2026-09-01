@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cueForVisit } from "./scoreAudio";
+import { cueForVisit, scoreAudioUrl } from "./scoreAudio";
 
 describe("score audio cues", () => {
   it("announces an ordinary accepted visit", () => {
@@ -18,5 +18,9 @@ describe("score audio cues", () => {
   it("gives bust priority over every other call", () => {
     expect(cueForVisit(180, true, true).text).toBe("Bust");
     expect(cueForVisit(180, true, true).filename).toBe("bust.mp3");
+  });
+
+  it("versions caller files so corrected recordings bypass browser caches", () => {
+    expect(scoreAudioUrl(cueForVisit(180, false, false))).toContain("score-180.mp3?v=");
   });
 });

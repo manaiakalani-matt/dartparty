@@ -11,8 +11,10 @@ export const cueForVisit = (score: number, bust: boolean, checkout: boolean): Sc
 };
 
 let activeAudio: HTMLAudioElement | null = null;
+const CALLER_PACK_VERSION = "2026-09-01-2";
 
-export const scoreAudioUrl = (cue: ScoreAudioCue) => `${import.meta.env.BASE_URL}audio/caller/${cue.filename}`;
+export const scoreAudioUrl = (cue: ScoreAudioCue) =>
+  `${import.meta.env.BASE_URL}audio/caller/${cue.filename}?v=${CALLER_PACK_VERSION}`;
 
 export const playScoreCue = (cue: ScoreAudioCue) => {
   if (typeof Audio === "undefined") return;
