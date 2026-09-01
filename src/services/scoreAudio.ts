@@ -1,46 +1,35 @@
 export type ScoreAudioCue = {
   text: string;
-  rate: number;
-  pitch: number;
+  filename: string;
 };
 
 export const cueForVisit = (score: number, bust: boolean, checkout: boolean): ScoreAudioCue => {
-  if (bust) return { text: "Bust", rate: 0.82, pitch: 0.82 };
-  if (checkout) return { text: "Baaaaaaaah!", rate: 0.48, pitch: 0.62 };
-  return { text: `${score} scored`, rate: 0.92, pitch: 0.9 };
+  if (bust) return { text: "Bust", filename: "bust.mp3" };
+  if (checkout) return { text: "Baaaaaaaah!", filename: "checkout.mp3" };
+  return { text: `${score} scored`, filename: `score-${score}.mp3` };
 };
 
-export const voiceKey = (voice: SpeechSynthesisVoice) => `${voice.voiceURI}::${voice.name}::${voice.lang}`;
+let activeAudio: HTMLAudioElement | null = null;
 
-export const englishScoreVoices = () => {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return [];
-  return window.speechSynthesis.getVoices()
-    .filter((voice) => voice.lang.toLowerCase().startsWith("en"))
-    .sort((left, right) => left.lang.localeCompare(right.lang) || left.name.localeCompare(right.name));
-};
+export const scoreAudioUrl = (cue: ScoreAudioCue) => `${import.meta.env.BASE_URL}audio/caller/${cue.filename}`;
 
-export const playScoreCue = (cue: ScoreAudioCue, selectedVoiceKey = "") => {
-  if (typeof window === "undefined" || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
+export const playScoreCue = (cue: ScoreAudioCue) => {
+  if (typeof Audio === "undefined") return;
 
-  const speech = window.speechSynthesis;
-  const utterance = new SpeechSynthesisUtterance(cue.text);
-  const voices = speech.getVoices();
-  const preferredLanguages = ["en-NZ", "en-AU", "en-GB"];
-  const selectedVoice = voices.find((item) => voiceKey(item) === selectedVoiceKey);
-  const voice = selectedVoice ?? preferredLanguages
-    .map((language) => voices.find((item) => item.lang === language))
-    .find(Boolean) ?? voices.find((item) => item.lang.toLowerCase().startsWith("en"));
-
-  if (voice) utterance.voice = voice;
-  utterance.lang = voice?.lang ?? "en-NZ";
-  utterance.rate = cue.rate;
-  utterance.pitch = cue.pitch;
-  utterance.volume = 1;
-
-  speech.cancel();
-  speech.speak(utterance);
+  stopScoreAudio();
+  const audio = new Audio(scoreAudioUrl(cue));
+  activeAudio = audio;
+  audio.addEventListener("ended", () => {
+    if (activeAudio === audio) activeAudio = null;
+  }, { once: true });
+  void audio.play().catch(() => {
+    if (activeAudio === audio) activeAudio = null;
+  });
 };
 
 export const stopScoreAudio = () => {
-  if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  if (!activeAudio) return;
+  activeAudio.pause();
+  activeAudio.currentTime = 0;
+  activeAudio = null;
 };
