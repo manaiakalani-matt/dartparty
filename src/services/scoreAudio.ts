@@ -5,7 +5,8 @@ export type ScoreAudioCue = {
 
 export const cueForVisit = (score: number, bust: boolean, checkout: boolean): ScoreAudioCue => {
   if (bust) return { text: "Bust", filename: "bust.mp3" };
-  if (checkout) return { text: "Baaaaaaaah!", filename: "checkout.mp3" };
+  if (checkout) return { text: "Got him!", filename: "checkout.mp3" };
+  if (score === 180) return { text: "One hundred and eighty", filename: "score-180.mp3" };
   return { text: `${score} scored`, filename: `score-${score}.mp3` };
 };
 

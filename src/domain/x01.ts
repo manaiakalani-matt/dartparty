@@ -74,6 +74,14 @@ const otherPlayer = (player: PlayerIndex): PlayerIndex => (player === 0 ? 1 : 0)
 
 const asPlayerIndex = (value: number): PlayerIndex => (value === 0 ? 0 : 1);
 
+const impossibleThreeDartScores = new Set([163, 166, 169, 172, 173, 175, 176, 178, 179]);
+
+export const isPossibleVisitScore = (score: number) =>
+  Number.isInteger(score)
+  && score >= 0
+  && score <= 180
+  && !impossibleThreeDartScores.has(score);
+
 const validateConfig = (config: MatchConfig) => {
   if (!Number.isInteger(config.startingScore) || config.startingScore < 2) {
     throw new MatchRuleError("Starting score must be an integer of at least 2.");
@@ -87,6 +95,10 @@ const validateConfig = (config: MatchConfig) => {
 const validateVisitScore = (score: number) => {
   if (!Number.isInteger(score) || score < 0 || score > 180) {
     throw new MatchRuleError("Visit score must be a whole number from 0 to 180.");
+  }
+
+  if (!isPossibleVisitScore(score)) {
+    throw new MatchRuleError(`${score} is not possible with three darts.`);
   }
 };
 

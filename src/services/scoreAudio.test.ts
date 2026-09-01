@@ -7,12 +7,12 @@ describe("score audio cues", () => {
     expect(cueForVisit(85, false, false).filename).toBe("score-85.mp3");
   });
 
-  it("announces 180 like any other accepted visit", () => {
-    expect(cueForVisit(180, false, false).text).toBe("180 scored");
+  it("gives 180 its traditional call", () => {
+    expect(cueForVisit(180, false, false).text).toBe("One hundred and eighty");
   });
 
   it("uses the checkout call instead of the entered score", () => {
-    expect(cueForVisit(41, false, true).text).toBe("Baaaaaaaah!");
+    expect(cueForVisit(41, false, true).text).toBe("Got him!");
   });
 
   it("gives bust priority over every other call", () => {

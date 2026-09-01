@@ -185,4 +185,14 @@ describe("X01 match engine", () => {
     })).toThrow(MatchRuleError);
     expect(() => submitVisit(standardMatch(), { score: 181 })).toThrow(MatchRuleError);
   });
+
+  it("rejects impossible three-dart visit totals", () => {
+    for (const score of [163, 166, 169, 172, 173, 175, 176, 178, 179]) {
+      expect(() => previewVisit(standardMatch(), score)).toThrow(`${score} is not possible with three darts.`);
+    }
+
+    expect(previewVisit(standardMatch(), 162).kind).toBe("score");
+    expect(previewVisit(standardMatch(), 177).kind).toBe("score");
+    expect(previewVisit(standardMatch(), 180).kind).toBe("score");
+  });
 });
