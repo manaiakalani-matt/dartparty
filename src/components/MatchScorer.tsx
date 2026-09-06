@@ -148,11 +148,16 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
     setEntry((current) => current.slice(0, -1));
   };
 
-  const commitVisit = (score: number, doubleInHit = false, checkoutDarts?: 1 | 2 | 3) => {
+  const commitVisit = (
+    score: number,
+    doubleInHit = false,
+    checkoutDarts?: 1 | 2 | 3,
+    explicitBust = false,
+  ) => {
     try {
       const beforeLeg = currentLeg(match).number;
       const scoringPlayer = match.currentPlayer;
-      const next = submitVisit(match, { score, doubleInHit, checkoutDarts });
+      const next = submitVisit(match, { score, doubleInHit, checkoutDarts, explicitBust });
       const completedLeg = next.legs.find((item) => item.number === beforeLeg);
       const submittedVisit = completedLeg?.visits[completedLeg.visits.length - 1];
       rememberAndSet(next);
@@ -202,6 +207,26 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
     } catch (error) {
       reportError(error);
     }
+  };
+
+  const startCheckout = () => {
+    if (
+      pending
+      || match.completed
+      || selectedVisitId
+      || !activeRoute
+      || !match.opened[match.currentPlayer]
+    ) return;
+
+    const score = match.remaining[match.currentPlayer];
+    setEntry(String(score));
+    setPending({ type: "checkout", score, doubleInHit: false });
+  };
+
+  const recordBust = () => {
+    if (pending || match.completed || selectedVisitId) return;
+    if (Date.now() - lastSubmissionRef.current < 350) return;
+    commitVisit(0, false, undefined, true);
   };
 
   const enterScore = () => {
@@ -455,10 +480,21 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
           {selectedVisitId && <button type="button" onClick={cancelEditing}>Cancel edit</button>}
         </div>
 
-        <div className="scoring-controls">
-          <div className="preset-scores" aria-label="Common low scores">
-            {[26, 41, 45].map((score) => <button key={score} type="button" disabled={Boolean(pending) || match.completed} onClick={() => enterPreset(score)}>{score}</button>)}
+        <div className="score-pad-layout">
+          <div className="quick-scores" aria-label="Quick scores">
+            {[26, 41, 45].map((score) => (
+              <button
+                key={score}
+                type="button"
+                disabled={Boolean(pending) || match.completed}
+                onClick={() => enterPreset(score)}
+                aria-label={`Score ${score}`}
+              >
+                {score}
+              </button>
+            ))}
           </div>
+
           <div className="keypad-grid">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
               <button key={digit} type="button" disabled={Boolean(pending) || match.completed} onClick={() => appendDigit(String(digit))}>{digit}</button>
@@ -467,12 +503,39 @@ export function MatchScorer({ players, config, initialState, onExit, onSave, onP
             <button type="button" disabled={Boolean(pending) || match.completed} onClick={() => appendDigit("0")}>0</button>
             <button className="enter" type="button" disabled={Boolean(pending) || match.completed || entry === ""} onClick={enterScore}>ENTER</button>
           </div>
-          <div className="preset-scores" aria-label="Common high scores">
-            {[60, 85, 100].map((score) => <button key={score} type="button" disabled={Boolean(pending) || match.completed} onClick={() => enterPreset(score)}>{score}</button>)}
+
+          <div className="quick-scores" aria-label="More quick scores">
+            {[60, 85, 100].map((score) => (
+              <button
+                key={score}
+                type="button"
+                disabled={Boolean(pending) || match.completed}
+                onClick={() => enterPreset(score)}
+                aria-label={`Score ${score}`}
+              >
+                {score}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="keypad-tools">
+          <button
+            className="checkout-tool"
+            type="button"
+            disabled={match.completed || !activeRoute || !match.opened[match.currentPlayer] || Boolean(selectedVisitId) || Boolean(pending)}
+            onClick={startCheckout}
+          >
+            Checkout
+          </button>
+          <button
+            className="bust-tool"
+            type="button"
+            disabled={match.completed || Boolean(selectedVisitId) || Boolean(pending)}
+            onClick={recordBust}
+          >
+            Bust
+          </button>
           <button type="button" onClick={clearDigits}>Clear</button>
           <button type="button" disabled={!past.length} onClick={undo}>↶ Undo</button>
           <button type="button" aria-pressed={soundEnabled} onClick={toggleSound}>{soundEnabled ? "🔊 Caller" : "🔇 Caller"}</button>

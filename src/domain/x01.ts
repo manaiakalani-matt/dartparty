@@ -13,6 +13,7 @@ export interface VisitInput {
   score: number;
   doubleInHit?: boolean;
   checkoutDarts?: 1 | 2 | 3;
+  explicitBust?: boolean;
 }
 
 export interface Visit {
@@ -26,6 +27,7 @@ export interface Visit {
   remainingAfter: number;
   dartsUsed: 1 | 2 | 3;
   bust: boolean;
+  explicitBust?: boolean;
   doubleInHit: boolean;
   checkout: boolean;
 }
@@ -195,12 +197,17 @@ function applyVisit(state: MatchState, input: VisitInput, visitId: string): Matc
   const leg = state.legs[state.currentLegIndex];
   const remainingBefore = state.remaining[player];
   const wasOpen = state.opened[player];
+  const explicitBust = Boolean(input.explicitBust);
 
-  if (!wasOpen && input.doubleInHit && input.score < 2) {
+  if (explicitBust && input.checkoutDarts) {
+    throw new MatchRuleError("A visit cannot be both a bust and a checkout.");
+  }
+
+  if (!explicitBust && !wasOpen && input.doubleInHit && input.score < 2) {
     throw new MatchRuleError("A double-in visit must score at least 2.");
   }
 
-  const opensThisVisit = wasOpen || Boolean(input.doubleInHit);
+  const opensThisVisit = wasOpen || (!explicitBust && Boolean(input.doubleInHit));
   const attemptedRemaining = opensThisVisit
     ? remainingBefore - input.score
     : remainingBefore;
@@ -210,11 +217,11 @@ function applyVisit(state: MatchState, input: VisitInput, visitId: string): Matc
     throw new MatchRuleError("Checkout darts can only be recorded when the score reaches zero.");
   }
 
-  const bust = opensThisVisit && (
+  const bust = explicitBust || (opensThisVisit && (
     attemptedRemaining < 0
     || attemptedRemaining === 1
     || (attemptedRemaining === 0 && !input.checkoutDarts)
-  );
+  ));
   const checkout = exactZero && Boolean(input.checkoutDarts);
   const countedScore = opensThisVisit && !bust ? input.score : 0;
   const remainingAfter = checkout
@@ -233,6 +240,7 @@ function applyVisit(state: MatchState, input: VisitInput, visitId: string): Matc
     remainingAfter,
     dartsUsed: input.checkoutDarts ?? 3,
     bust,
+    explicitBust,
     doubleInHit: Boolean(input.doubleInHit),
     checkout,
   };
@@ -335,6 +343,7 @@ export function editCurrentLegVisit(
         score: visit.id === visitId ? score : visit.enteredScore,
         doubleInHit: visit.doubleInHit,
         checkoutDarts: visit.checkout ? visit.dartsUsed : undefined,
+        explicitBust: visit.id === visitId ? false : visit.explicitBust,
       },
       visit.id,
     );

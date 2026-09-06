@@ -72,6 +72,27 @@ describe("X01 match engine", () => {
     });
   });
 
+  it("records an explicit bust as a zero-scoring visit", () => {
+    const match = createMatch(["Smith", "Jones"], {
+      startingScore: 301,
+      bestOf: 1,
+      checkIn: "double",
+      startingPlayer: 0,
+    });
+    const afterBust = submitVisit(match, { score: 0, explicitBust: true });
+
+    expect(afterBust.remaining).toEqual([301, 301]);
+    expect(afterBust.opened).toEqual([false, false]);
+    expect(afterBust.currentPlayer).toBe(1);
+    expect(currentLeg(afterBust).visits[0]).toMatchObject({
+      enteredScore: 0,
+      countedScore: 0,
+      dartsUsed: 3,
+      bust: true,
+      explicitBust: true,
+    });
+  });
+
   it("alternates the starting player after each leg", () => {
     let match = createMatch(["Smith", "Jones"], {
       startingScore: 40,
