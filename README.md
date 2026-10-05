@@ -34,6 +34,20 @@ npm run build
 
 Pull requests run the same checks in GitHub Actions. Merges to `main` build and deploy the static frontend through GitHub Pages once Pages is configured to use GitHub Actions.
 
+## Older iPad layout
+
+The frontend still targets iOS 12. Browsers without dynamic viewport units use
+the visible window height for the scorer and a bounded keypad height; resizing
+or rotating the device updates that height. Browsers without CSS math functions
+also get explicit panel widths, padding, and usable keypad tool buttons. These
+fallbacks are gated by feature support so current browsers keep their existing
+layout.
+
+When checking compatibility, use both portrait and landscape with the Safari
+toolbar visible. Check setup, the numeric keypad and bottom tools, checkout and
+double-in prompts, and a long visit history. A modern browser at iPad dimensions
+does not reproduce iOS 12 CSS support; the final check should use the old iPad.
+
 ## Persistence
 
 Cloudflare D1 stores every tournament, match result, visit history, and replacement audit record. A match remains on the scoring device until the player taps **Save result**. Each final save uses an atomic version check against its own match row, so multiple boards can finish simultaneously without overwriting each other.

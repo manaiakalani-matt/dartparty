@@ -1645,8 +1645,55 @@ textarea:focus-visible {
   }
 }
 
-/* Safari on iOS 12 does not understand clamp() or dynamic viewport units. */
+/* Keep the pad's four rows bounded when dvh declarations are ignored.
+   The visible height is supplied only to browsers without dynamic viewports. */
+@supports not (height: 100dvh) {
+  .scorer-shell { height: var(--legacy-viewport-height, 100vh); }
+  .score-pad-layout {
+    height: calc(var(--legacy-viewport-height, 100vh) * 0.32);
+    min-height: 210px;
+    max-height: 400px;
+    flex: 0 0 auto;
+  }
+  .keypad-grid button { min-height: 44px; }
+}
+
+/* Safari on iOS 12 does not understand min(), max() or clamp().
+   All these overrides are inactive on modern devices. */
 @supports not (font-size: clamp(1rem, 2vw, 2rem)) {
+  .setup-screen,
+  .saved-screen,
+  .complete-screen { padding: 18px 16px; }
+  .setup-card,
+  .saved-card,
+  .complete-card,
+  .form-card { width: 100%; max-width: 760px; }
+  .scorer-shell { width: 100%; max-width: 760px; }
+  .results-screen { width: 100%; max-width: 860px; padding-bottom: 36px; }
+  .hub-screen,
+  .form-screen,
+  .tournament-screen { width: 100%; max-width: 980px; }
+  .manage-screen { max-width: 1100px; }
+  .hub-create,
+  .hub-play { width: 100%; max-width: 320px; }
+  .bull-off-card { width: 100%; max-width: 690px; }
+  .result-modal { width: 100%; max-width: 460px; }
+  .result-next-actions { width: calc(100% - 28px); max-width: 820px; }
+  .match-bar { padding: 8px 13px; }
+  .results-topbar { padding: 8px 16px; }
+  .keypad-panel { padding: 8px 11px; }
+  .entry-display { flex-shrink: 0; }
+  .keypad-tools { min-height: 54px; flex-shrink: 0; }
+  .keypad-tools button { min-height: 44px; }
+  .decision-bar { top: 8px; right: 11px; bottom: 8px; left: 11px; }
+  .result-share-notice { bottom: 18px; }
+  .visit-scroll { -webkit-overflow-scrolling: touch; }
+
+  /* iOS 12 ignores logical padding, which otherwise crowds tablet controls. */
+  .entry-display { padding: 4px 10px; }
+  .hub-actions > * { margin-right: 10px; margin-bottom: 10px; }
+  .match-actions > * + * { margin-left: 8px; }
+  .manage-row > div > * + * { margin-left: 6px; }
   .setup-card,
   .saved-card,
   .complete-card { padding: 28px; }
@@ -1682,4 +1729,37 @@ textarea:focus-visible {
   .bull-off-players span { font-size: 2.5rem; }
   .tournament-hero h1 { font-size: 4.5rem; }
   .match-main strong { font-size: 1.5rem; }
+
+  @media (min-width: 700px) {
+    .scorer-shell { max-width: 900px; }
+    .keypad-panel { padding: 12px 16px; }
+    .entry-display { padding: 4px 16px; }
+    .keypad-grid button { min-height: 52px; }
+  }
+
+  @media (max-height: 700px) {
+    .match-bar { min-height: 44px; padding: 5px 13px; }
+    .remaining-score strong { font-size: 4.4rem; }
+    .checkout-strip { padding: 3px 13px; }
+    .keypad-grid button { min-height: 44px; }
+  }
+
+  @media (max-width: 650px) {
+    .hub-screen,
+    .form-screen,
+    .tournament-screen { padding: 18px 14px 30px; }
+    .hub-create,
+    .hub-play { max-width: none; }
+    .hub-actions > * { margin-right: 0; margin-bottom: 0; }
+    .group-match-columns { margin-right: -14px; padding-right: 14px; }
+    .hub-hero h1,
+    .tournament-hero h1 { font-size: 3.5rem; }
+    .form-card h1 { font-size: 3.2rem; }
+  }
+
+  /* A very short viewport can scroll instead of hiding essential buttons. */
+  @media (max-height: 520px) {
+    .scorer-shell { height: auto; min-height: var(--legacy-viewport-height, 100vh); overflow: visible; }
+    .visit-scroll { max-height: 120px; }
+  }
 }
